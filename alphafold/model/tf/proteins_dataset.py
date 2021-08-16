@@ -159,6 +159,18 @@ def np_to_tensor_dict(
   features_metadata = _make_features_metadata(features)
   tensor_dict = {k: tf.constant(v) for k, v in np_example.items()
                  if k in features_metadata}
+  #from absl import logging
+  #tensor_dict = dict()
+  #for k, v in np_example.items():
+  #    if k in features_metadata:
+  #        logging.info(str(k) + ' ' + str(v.shape))
+  #        #v_init = tf.placeholder(v.dtype, shape=v.shape)
+  #        #v_var = tf.Variable(v_init)
+  #        #tensor_dict[k] = v_var
+  #        #v_1 = tf.constant(v)
+  #        v_2 = tf.concat([tf.constant(v_chunk) for v_chunk in np.array_split(v, indices_or_sections=1000, axis=0)], axis=0)
+  #        #logging.info(f"v_1 shape: {v_1.shape} v_2 shape: {v_2.shape}")
+  #        tensor_dict[k] = v_2
 
   # Ensures shapes are as expected. Needed for setting size of empty features
   # e.g. when no template hits were found.

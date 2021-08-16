@@ -22,6 +22,9 @@ from absl import logging
 from alphafold.data.tools import utils
 # Internal import (7716).
 
+TMPDIR="/tmp"
+#TMPDIR="/data/alberto/alphafold_tmp"
+
 
 class Hmmsearch(object):
   """Python wrapper of the hmmsearch binary."""
@@ -51,7 +54,9 @@ class Hmmsearch(object):
 
   def query(self, hmm: str) -> str:
     """Queries the database using hmmsearch using a given hmm."""
-    with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
+    #with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
+    #with utils.tmpdir_manager(base_dir='/data/alberto/alphafold_tmp') as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
       hmm_input_path = os.path.join(query_tmp_dir, 'query.hmm')
       a3m_out_path = os.path.join(query_tmp_dir, 'output.a3m')
       with open(hmm_input_path, 'w') as f:
@@ -60,7 +65,7 @@ class Hmmsearch(object):
       cmd = [
           self.binary_path,
           '--noali',  # Don't include the alignment in stdout.
-          '--cpu', '8'
+          '--cpu', '48'
       ]
       # If adding flags, we have to do so before the output and input:
       if self.flags:

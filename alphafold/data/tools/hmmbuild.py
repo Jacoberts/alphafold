@@ -22,6 +22,9 @@ from absl import logging
 from alphafold.data.tools import utils
 # Internal import (7716).
 
+TMPDIR="/tmp"
+#TMPDIR="/data/alberto/alphafold_tmp"
+
 
 class Hmmbuild(object):
   """Python wrapper of the hmmbuild binary."""
@@ -98,7 +101,9 @@ class Hmmbuild(object):
       raise ValueError(f'Invalid model_construction {model_construction} - only'
                        'hand and fast supported.')
 
-    with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
+    #with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
+    #with utils.tmpdir_manager(base_dir='/data/alberto/alphafold_tmp') as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
       input_query = os.path.join(query_tmp_dir, 'query.msa')
       output_hmm_path = os.path.join(query_tmp_dir, 'output.hmm')
 

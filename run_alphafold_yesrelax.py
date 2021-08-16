@@ -26,7 +26,6 @@ from absl import app
 from absl import flags
 from absl import logging
 from alphafold.common import protein
-from alphafold.common import residue_constants
 from alphafold.data import pipeline
 from alphafold.data import templates
 from alphafold.model import data
@@ -138,7 +137,7 @@ def predict_structure(
     with open(features_output_path, 'rb') as f:
       feature_dict = pickle.load(f)
 
-  unrelaxed_pdbs = {}
+  relaxed_pdbs = {}
   plddts = {}
 
   # Run the models.
@@ -163,40 +162,31 @@ def predict_structure(
       timings[f'predict_benchmark_{model_name}'] = time.time() - t_0
 
     # Get mean pLDDT confidence metric.
-    plddt = prediction_result['plddt']
-    plddts[model_name] = np.mean(plddt)
+    plddts[model_name] = np.mean(prediction_result['plddt'])
 
     # Save the model outputs.
     result_output_path = os.path.join(output_dir, f'result_{model_name}.pkl')
     with open(result_output_path, 'wb') as f:
       pickle.dump(prediction_result, f, protocol=4)
 
-    # Add the predicted LDDT in the b-factor column.
-    # Note that higher predicted LDDT value means higher model confidence.
-    plddt_b_factors = np.repeat(
-        plddt[:, None], residue_constants.atom_type_num, axis=-1)
-    unrelaxed_protein = protein.from_prediction(
-        features=processed_feature_dict,
-        result=prediction_result,
-        b_factors=plddt_b_factors)
+    unrelaxed_protein = protein.from_prediction(processed_feature_dict,
+                                                prediction_result)
 
     unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
     with open(unrelaxed_pdb_path, 'w') as f:
       f.write(protein.to_pdb(unrelaxed_protein))
 
-    unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
+    # Relax the prediction.
+    t_0 = time.time()
+    relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
+    timings[f'relax_{model_name}'] = time.time() - t_0
 
-    ## Relax the prediction.
-    #t_0 = time.time()
-    #relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
-    #timings[f'relax_{model_name}'] = time.time() - t_0
+    relaxed_pdbs[model_name] = relaxed_pdb_str
 
-    #relaxed_pdbs[model_name] = relaxed_pdb_str
-
-    ## Save the relaxed PDB.
-    #relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
-    #with open(relaxed_output_path, 'w') as f:
-    #  f.write(relaxed_pdb_str)
+    # Save the relaxed PDB.
+    relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
+    with open(relaxed_output_path, 'w') as f:
+      f.write(relaxed_pdb_str)
 
   # Rank by pLDDT and write out relaxed PDBs in rank order.
   ranked_order = []
@@ -205,7 +195,7 @@ def predict_structure(
     ranked_order.append(model_name)
     ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
     with open(ranked_output_path, 'w') as f:
-      f.write(unrelaxed_pdbs[model_name])
+      f.write(relaxed_pdbs[model_name])
 
   ranking_output_path = os.path.join(output_dir, 'ranking_debug.json')
   with open(ranking_output_path, 'w') as f:

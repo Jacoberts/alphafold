@@ -22,6 +22,9 @@ from absl import logging
 from alphafold.data.tools import utils
 # Internal import (7716).
 
+TMPDIR="/tmp"
+#TMPDIR="/data/alberto/alphafold_tmp"
+
 
 def _to_a3m(sequences: Sequence[str]) -> str:
   """Converts sequences to an a3m file."""
@@ -70,7 +73,9 @@ class Kalign:
         raise ValueError('Kalign requires all sequences to be at least 6 '
                          'residues long. Got %s (%d residues).' % (s, len(s)))
 
-    with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
+    #with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
+    #with utils.tmpdir_manager(base_dir='/data/alberto/alphafold_tmp') as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
       input_fasta_path = os.path.join(query_tmp_dir, 'input.fasta')
       output_a3m_path = os.path.join(query_tmp_dir, 'output.a3m')
 

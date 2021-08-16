@@ -26,6 +26,8 @@ from alphafold.data.tools import utils
 
 _HHBLITS_DEFAULT_P = 20
 _HHBLITS_DEFAULT_Z = 500
+TMPDIR="/tmp"
+#TMPDIR="/data/alberto/alphafold_tmp"
 
 
 class HHBlits:
@@ -35,7 +37,7 @@ class HHBlits:
                *,
                binary_path: str,
                databases: Sequence[str],
-               n_cpu: int = 4,
+               n_cpu: int = 32,
                n_iter: int = 3,
                e_value: float = 0.001,
                maxseq: int = 1_000_000,
@@ -96,7 +98,7 @@ class HHBlits:
 
   def query(self, input_fasta_path: str) -> Mapping[str, Any]:
     """Queries the database using HHblits."""
-    with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
       a3m_path = os.path.join(query_tmp_dir, 'output.a3m')
 
       db_cmd = []
@@ -107,6 +109,8 @@ class HHBlits:
           self.binary_path,
           '-i', input_fasta_path,
           '-cpu', str(self.n_cpu),
+          #'-maxmem', str(196),
+          '-maxmem', str(116),
           '-oa3m', a3m_path,
           '-o', '/dev/null',
           '-n', str(self.n_iter),

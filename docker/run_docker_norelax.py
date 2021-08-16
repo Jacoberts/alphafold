@@ -32,7 +32,7 @@ from docker import types
 DOWNLOAD_DIR = '/data/alberto/alphafold_databases'
 
 # Name of the AlphaFold Docker image.
-docker_image_name = 'alphafold'
+docker_image_name = 'alphafold_norelax'
 
 # Path to a directory that will store the results.
 #output_dir = '/tmp/alphafold'
@@ -44,10 +44,10 @@ tmp_dir = '/data/alberto/alphafold_tmp'
 # Names of models to use.
 model_names = [
     'model_1',
-    'model_2',
-    'model_3',
-    'model_4',
-    'model_5',
+    #'model_2',
+    #'model_3',
+    #'model_4',
+    #'model_5',
 ]
 
 # You can individually override the following paths if you have placed the
@@ -165,6 +165,7 @@ def main(argv):
   output_target_path = os.path.join(_ROOT_MOUNT_DIRECTORY, 'output')
   mounts.append(types.Mount(output_target_path, output_dir, type='bind'))
 
+  # Temporary directory mount
   mounts.append(types.Mount('/tmp', tmp_dir, type='bind'))
 
   command_args.extend([
