@@ -26,8 +26,9 @@ from alphafold.data.tools import utils
 
 _HHBLITS_DEFAULT_P = 20
 _HHBLITS_DEFAULT_Z = 500
-TMPDIR="/tmp"
+#TMPDIR="/tmp"
 #TMPDIR="/data/alberto/alphafold_tmp"
+TMPDIR="/global/scratch/aanava/alphafold_tmp"
 
 
 class HHBlits:
@@ -110,7 +111,7 @@ class HHBlits:
           '-i', input_fasta_path,
           '-cpu', str(self.n_cpu),
           #'-maxmem', str(196),
-          '-maxmem', str(116),
+          #'-maxmem', str(116),
           '-oa3m', a3m_path,
           '-o', '/dev/null',
           '-n', str(self.n_iter),

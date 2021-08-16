@@ -59,7 +59,7 @@ def make_mock_template(query_sequence: str):
 
 
 def make_sequence_features(
-        sequence: str, description: str, num_res: int, homooligomer: int = 2) -> FeatureDict:
+        sequence: str, description: str, num_res: int, homooligomer: int = 1) -> FeatureDict:
   """Constructs a feature dict of sequence features."""
   Ln: int = len(sequence)
   Ls: Sequence[int] = [Ln]*homooligomer
@@ -95,7 +95,7 @@ def make_msa_features(
     msas: Sequence[Sequence[str]],
     deletion_matrices: Sequence[parsers.DeletionMatrix],
     Ln: int,
-    homooligomer: int = 2) -> FeatureDict:
+    homooligomer: int = 1) -> FeatureDict:
   """Constructs a feature dict of MSA features."""
   if not msas:
     raise ValueError('At least one MSA must be provided.')
@@ -153,8 +153,8 @@ class DataPipeline:
                template_featurizer: templates.TemplateHitFeaturizer,
                use_small_bfd: bool,
                mgnify_max_hits: int = 501,
-               uniref_max_hits: int = 15000,
-               bfd_max_hits: int = 10000):
+               uniref_max_hits: int = 25000,
+               bfd_max_hits: int = 25000):
     """Constructs a feature dict for a given FASTA file."""
     self._use_small_bfd = use_small_bfd
     self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
@@ -179,7 +179,7 @@ class DataPipeline:
     self.uniref_max_hits = uniref_max_hits
     self.bfd_max_hits = bfd_max_hits
 
-  def process(self, input_fasta_path: str, msa_output_dir: str, homooligomer: int = 2) -> FeatureDict:
+  def process(self, input_fasta_path: str, msa_output_dir: str, homooligomer: int = 1) -> FeatureDict:
     """Runs alignment tools on the input sequence and creates features."""
     with open(input_fasta_path) as f:
       input_fasta_str = f.read()
@@ -278,14 +278,16 @@ class DataPipeline:
     sequence_features = make_sequence_features(
         sequence=input_sequence,
         description=input_description,
-        num_res=num_res)
+        num_res=num_res,
+        homooligomer=homooligomer)
 
     msa_features = make_msa_features(
         msas=(uniref90_msa, bfd_msa, mgnify_msa),
         deletion_matrices=(uniref90_deletion_matrix,
                            bfd_deletion_matrix,
                            mgnify_deletion_matrix),
-        Ln=len(input_sequence)
+        Ln=len(input_sequence),
+        homooligomer=homooligomer
         )
 
     logging.info('Uniref90 MSA size: %d sequences.', len(uniref90_msa))

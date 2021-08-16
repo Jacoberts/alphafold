@@ -26,8 +26,9 @@ from absl import logging
 from alphafold.data.tools import utils
 # Internal import (7716).
 
-TMPDIR="/tmp"
+#TMPDIR="/tmp"
 #TMPDIR="/data/alberto/alphafold_tmp"
+TMPDIR="/global/scratch/aanava/alphafold_tmp"
 
 
 class Jackhmmer:
@@ -37,7 +38,7 @@ class Jackhmmer:
                *,
                binary_path: str,
                database_path: str,
-               n_cpu: int = 32,
+               n_cpu: int = 16,
                n_iter: int = 1,
                e_value: float = 0.0001,
                z_value: Optional[int] = None,
@@ -113,7 +114,7 @@ class Jackhmmer:
           '--incE', str(self.e_value),
           # Report only sequences with E-values <= x in per-sequence output.
           '-E', str(self.e_value),
-          '--cpu', str(self.n_cpu),
+          #'--cpu', str(self.n_cpu), # if commented, use all available CPU
           '-N', str(self.n_iter)
       ]
       if self.get_tblout:

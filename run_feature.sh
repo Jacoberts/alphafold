@@ -96,16 +96,15 @@ if [[ "$homooligomer" == "" ]] ; then
 fi
 
 if [[ "$preset" != "full_dbs" && "$preset" != "casp14" && "$preset" != "reduced_dbs" ]] ; then
-    echo "Unknown preset! Using default ('full_dbs')"
-    preset="full_dbs"
+    echo "Unknown preset! Using default ('reduced_dbs')"
+    preset="reduced_dbs"
 fi
 
 # This bash script looks for the run_alphafold.py script in its current working directory, if it does not exist then exits
 #current_working_dir=$(pwd)
 #alphafold_script="$current_working_dir/run_alphafold.py"
 #alphafold_norelax_script="$current_working_dir/run_alphafold_norelax.py"
-alphafold_script="run_alphafold.py"
-alphafold_norelax_script="run_alphafold_norelax.py"
+alphafold_script="run_feature.py"
 
 if [ ! -f "$alphafold_script" ]; then
     echo "Alphafold python script $alphafold_script does not exist."
@@ -142,20 +141,10 @@ jackhmmer_binary_path=$(which jackhmmer)
 kalign_binary_path=$(which kalign)
 
 # Run AlphaFold with required parameters
-if $relax; then
-	if [[ $preset == "reduced_dbs" ]]; then
-		echo 'Starting alphafold with amber relaxation and reduced_dbs'
-		$(python $alphafold_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniref90_database_path=$uniref90_database_path --small_bfd_database_path=$small_bfd_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer)
-	else
-		echo 'Starting alphafold with amber relaxation and full_dbs'
-		$(python $alphafold_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --bfd_database_path=$bfd_database_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniclust30_database_path=$uniclust30_database_path --uniref90_database_path=$uniref90_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer)
-	fi
+if [[ $preset == "reduced_dbs" ]]; then
+	echo 'Starting alphafold with reduced_dbs'
+	$(python $alphafold_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniref90_database_path=$uniref90_database_path --small_bfd_database_path=$small_bfd_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer)
 else
-	if [[ $preset == "reduced_dbs" ]]; then
-		echo 'Starting alphafold without amber relaxation and reduced_dbs'
-		$(python $alphafold_norelax_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniref90_database_path=$uniref90_database_path --small_bfd_database_path=$small_bfd_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer)
-	else
-		echo 'Starting alphafold without amber relaxation and full_dbs'
-		$(python $alphafold_norelax_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --bfd_database_path=$bfd_database_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniclust30_database_path=$uniclust30_database_path --uniref90_database_path=$uniref90_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer)
-	fi
+	echo 'Starting alphafold with full_dbs'
+	$(python $alphafold_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --bfd_database_path=$bfd_database_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniclust30_database_path=$uniclust30_database_path --uniref90_database_path=$uniref90_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer)
 fi

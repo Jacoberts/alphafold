@@ -192,18 +192,18 @@ def predict_structure(
 
     unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
 
-    if homooligomer == 1:
-      # Relax the prediction.
-      t_0 = time.time()
-      relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
-      timings[f'relax_{model_name}'] = time.time() - t_0
+    #if homooligomer == 1:
+    #  # Relax the prediction.
+    #  t_0 = time.time()
+    #  relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
+    #  timings[f'relax_{model_name}'] = time.time() - t_0
 
-      relaxed_pdbs[model_name] = relaxed_pdb_str
+    #  relaxed_pdbs[model_name] = relaxed_pdb_str
 
-      # Save the relaxed PDB.
-      relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
-      with open(relaxed_output_path, 'w') as f:
-        f.write(relaxed_pdb_str)
+    #  # Save the relaxed PDB.
+    #  relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
+    #  with open(relaxed_output_path, 'w') as f:
+    #    f.write(relaxed_pdb_str)
 
   # Rank by pLDDT and write out relaxed PDBs in rank order.
   ranked_order = []
@@ -211,12 +211,8 @@ def predict_structure(
       sorted(plddts.items(), key=lambda x: x[1], reverse=True)):
     ranked_order.append(model_name)
     ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
-    if homooligomer > 1:
-      with open(ranked_output_path, 'w') as f:
-        f.write(unrelaxed_pdbs[model_name])
-    else:
-      with open(ranked_output_path, 'w') as f:
-        f.write(relaxed_pdbs[model_name])
+    with open(ranked_output_path, 'w') as f:
+      f.write(unrelaxed_pdbs[model_name])
 
   ranking_output_path = os.path.join(output_dir, 'ranking_debug.json')
   with open(ranking_output_path, 'w') as f:
@@ -296,7 +292,7 @@ def main(argv):
     random_seed = random.randrange(sys.maxsize)
   logging.info('Using random seed %d for the data pipeline', random_seed)
 
-  homooligomer = FLAGS.homooligomer
+  homooligomer = flags.homooligomer
   if homooligomer is None:
     homooligomer = 1
 

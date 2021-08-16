@@ -1,0 +1,11 @@
+# Differences between default environment
+# conda install -y -c conda-forge cudnn==7.6 cudatoolkit
+# pip install tensorflow==2.3
+# pip install --upgrade jax jaxlib==0.1.69+cuda102 -f https://storage.googleapis.com/jax-releases/jax_releases.html
+#
+# When launching slurm jobs, need to
+# module purge
+# module load cuda/10.2
+#
+# cuda/11.2 is available as a module, but when trying to run tensorflow with it, get error
+# cuda driver version not sufficient for cuda runtime version

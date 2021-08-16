@@ -139,94 +139,11 @@ def predict_structure(
     # Write out features as a pickled dictionary.
     with open(features_output_path, 'wb') as f:
       pickle.dump(feature_dict, f, protocol=4)
-  else:
-    with open(features_output_path, 'rb') as f:
-      feature_dict = pickle.load(f)
 
-  unrelaxed_pdbs = {}
-  relaxed_pdbs = {}
-  plddts = {}
-
-  # Run the models.
-  for model_name, model_runner in model_runners.items():
-    logging.info('Running model %s', model_name)
-    t_0 = time.time()
-    processed_feature_dict = model_runner.process_features(
-        feature_dict, random_seed=random_seed)
-    timings[f'process_features_{model_name}'] = time.time() - t_0
-
-    t_0 = time.time()
-    prediction_result = model_runner.predict(processed_feature_dict)
-    t_diff = time.time() - t_0
-    timings[f'predict_and_compile_{model_name}'] = t_diff
-    logging.info(
-        'Total JAX model %s predict time (includes compilation time, see --benchmark): %.0f?',
-        model_name, t_diff)
-
-    if benchmark:
-      t_0 = time.time()
-      model_runner.predict(processed_feature_dict)
-      timings[f'predict_benchmark_{model_name}'] = time.time() - t_0
-
-    # Get mean pLDDT confidence metric.
-    plddt = prediction_result['plddt']
-    plddts[model_name] = np.mean(plddt)
-
-    # Save the model outputs.
-    result_output_path = os.path.join(output_dir, f'result_{model_name}.pkl')
-    with open(result_output_path, 'wb') as f:
-      pickle.dump(prediction_result, f, protocol=4)
-
-    # Add the predicted LDDT in the b-factor column.
-    # Note that higher predicted LDDT value means higher model confidence.
-    plddt_b_factors = np.repeat(
-        plddt[:, None], residue_constants.atom_type_num, axis=-1)
-    unrelaxed_protein = protein.from_prediction(
-        features=processed_feature_dict,
-        result=prediction_result,
-        b_factors=plddt_b_factors)
-
-    unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
-    with open(unrelaxed_pdb_path, 'w') as f:
-      f.write(protein.to_pdb(unrelaxed_protein))
-
-    unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
-
-    if homooligomer == 1:
-      # Relax the prediction.
-      t_0 = time.time()
-      relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
-      timings[f'relax_{model_name}'] = time.time() - t_0
-
-      relaxed_pdbs[model_name] = relaxed_pdb_str
-
-      # Save the relaxed PDB.
-      relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
-      with open(relaxed_output_path, 'w') as f:
-        f.write(relaxed_pdb_str)
-
-  # Rank by pLDDT and write out relaxed PDBs in rank order.
-  ranked_order = []
-  for idx, (model_name, _) in enumerate(
-      sorted(plddts.items(), key=lambda x: x[1], reverse=True)):
-    ranked_order.append(model_name)
-    ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
-    if homooligomer > 1:
-      with open(ranked_output_path, 'w') as f:
-        f.write(unrelaxed_pdbs[model_name])
-    else:
-      with open(ranked_output_path, 'w') as f:
-        f.write(relaxed_pdbs[model_name])
-
-  ranking_output_path = os.path.join(output_dir, 'ranking_debug.json')
-  with open(ranking_output_path, 'w') as f:
-    f.write(json.dumps({'plddts': plddts, 'order': ranked_order}, indent=4))
-
-  logging.info('Final timings for %s: %s', fasta_name, timings)
-
-  timings_output_path = os.path.join(output_dir, 'timings.json')
-  with open(timings_output_path, 'w') as f:
-    f.write(json.dumps(timings, indent=4))
+    timings_output_path = os.path.join(output_dir, 'feature_only_timings.json')
+    with open(timings_output_path, 'w') as f:
+      f.write(json.dumps(timings, indent=4))
+  return None
 
 
 def main(argv):
