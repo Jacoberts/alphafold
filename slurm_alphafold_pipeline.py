@@ -183,7 +183,7 @@ ALPHAFOLD_FEATURE_TEMPLATE: str = """#!/bin/bash
 #SBATCH --qos=lr_normal
 #SBATCH --output={ALPHAFOLD_INPUT}/%j_%x_{NAME}.out
 #SBATCH --error={ALPHAFOLD_INPUT}/%j_%x_{NAME}.err
-#SBATCH --time=4:00:00
+#SBATCH --time=48:00:00
 #SBATCH -N 1
 
 TARGET_FASTA="{TARGET_FASTA}"

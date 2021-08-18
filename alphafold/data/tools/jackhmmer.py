@@ -38,7 +38,7 @@ class Jackhmmer:
                *,
                binary_path: str,
                database_path: str,
-               n_cpu: int = 16,
+               n_cpu: int = 32,
                n_iter: int = 1,
                e_value: float = 0.0001,
                z_value: Optional[int] = None,
@@ -114,7 +114,7 @@ class Jackhmmer:
           '--incE', str(self.e_value),
           # Report only sequences with E-values <= x in per-sequence output.
           '-E', str(self.e_value),
-          #'--cpu', str(self.n_cpu), # if commented, use all available CPU
+          '--cpu', str(self.n_cpu),
           '-N', str(self.n_iter)
       ]
       if self.get_tblout:

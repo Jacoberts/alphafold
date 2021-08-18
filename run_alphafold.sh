@@ -95,9 +95,9 @@ if [[ "$homooligomer" == "" ]] ; then
     homooligomer=1
 fi
 
-if [[ "$preset" != "full_dbs" && "$preset" != "casp14" && "$preset" != "reduced_dbs" ]] ; then
-    echo "Unknown preset! Using default ('full_dbs')"
-    preset="full_dbs"
+if [[ "$preset" != "full_dbs" && "$preset" != "reduced_dbs" ]] ; then
+    echo "Unknown preset! Using default ('reduced_dbs')"
+    preset="reduced_dbs"
 fi
 
 # This bash script looks for the run_alphafold.py script in its current working directory, if it does not exist then exits

@@ -95,7 +95,7 @@ if [[ "$homooligomer" == "" ]] ; then
     homooligomer=1
 fi
 
-if [[ "$preset" != "full_dbs" && "$preset" != "casp14" && "$preset" != "reduced_dbs" ]] ; then
+if [[ "$preset" != "full_dbs" && "$preset" != "reduced_dbs" ]] ; then
     echo "Unknown preset! Using default ('reduced_dbs')"
     preset="reduced_dbs"
 fi

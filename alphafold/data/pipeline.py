@@ -116,6 +116,9 @@ def make_msa_features(
   int_msa = []
   deletion_matrix = []
   seen_sequences = set()
+  # 1.99 GB Max size, size of row in msa array = Ln * 4 bytes (int32)
+  max_msa_sequences = (1.99*1024*1024*1024) // (Ln * homooligomer * 4) 
+  num_sequences = 0
   for msa_index, msa in enumerate(all_msas):
     if not msa:
       raise ValueError(f'MSA {msa_index} must contain at least one sequence.')
@@ -126,6 +129,11 @@ def make_msa_features(
       int_msa.append(
           [residue_constants.HHBLITS_AA_TO_ID[res] for res in sequence])
       deletion_matrix.append(all_deletion_matrices[msa_index][sequence_index])
+      num_sequences += 1
+      if num_sequences >= max_msa_sequences:
+        break
+    if num_sequences >= max_msa_sequences:
+      break
 
   num_res = len(all_msas[0][0])
   num_alignments = len(int_msa)
@@ -230,10 +238,10 @@ class DataPipeline:
     mgnify_msa, mgnify_deletion_matrix, _ = parsers.parse_stockholm(
         jackhmmer_mgnify_result['sto'])
     hhsearch_hits = parsers.parse_hhr(hhsearch_result)
-    mgnify_msa = mgnify_msa[:self.mgnify_max_hits]
-    mgnify_deletion_matrix = mgnify_deletion_matrix[:self.mgnify_max_hits]
-    uniref90_msa = uniref90_msa[:self.uniref_max_hits]
-    uniref90_deletion_matrix = uniref90_deletion_matrix[:self.uniref_max_hits]
+    #mgnify_msa = mgnify_msa[:self.mgnify_max_hits]
+    #mgnify_deletion_matrix = mgnify_deletion_matrix[:self.mgnify_max_hits]
+    #uniref90_msa = uniref90_msa[:self.uniref_max_hits]
+    #uniref90_deletion_matrix = uniref90_deletion_matrix[:self.uniref_max_hits]
 
     if self._use_small_bfd:
       bfd_out_path = os.path.join(msa_output_dir, 'small_bfd_hits.a3m')
@@ -263,8 +271,8 @@ class DataPipeline:
 
       bfd_msa, bfd_deletion_matrix = parsers.parse_a3m(
           hhblits_bfd_uniclust_result['a3m'])
-    bfd_msa = bfd_msa[:self.bfd_max_hits]
-    bfd_deletion_matrix = bfd_deletion_matrix[:self.bfd_max_hits]
+    #bfd_msa = bfd_msa[:self.bfd_max_hits]
+    #bfd_deletion_matrix = bfd_deletion_matrix[:self.bfd_max_hits]
 
     if homooligomer > 1:
       templates_result = make_mock_template(query_sequence=input_sequence*homooligomer)
