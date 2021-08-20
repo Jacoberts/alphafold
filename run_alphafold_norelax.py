@@ -292,7 +292,7 @@ def main(argv):
     random_seed = random.randrange(sys.maxsize)
   logging.info('Using random seed %d for the data pipeline', random_seed)
 
-  homooligomer = flags.homooligomer
+  homooligomer = FLAGS.homooligomer
   if homooligomer is None:
     homooligomer = 1
 

@@ -88,17 +88,14 @@ if [[ "$preset" == "" ]] ; then
 fi
 
 if [[ "$relax" == "" ]] ; then
-    preset=false
+    relax=false
 fi
 
 if [[ "$homooligomer" == "" ]] ; then
     homooligomer=1
 fi
-
-if [[ "$preset" != "full_dbs" && "$preset" != "reduced_dbs" ]] ; then
-    echo "Unknown preset! Using default ('reduced_dbs')"
-    preset="reduced_dbs"
-fi
+#homooligomer=2
+#gpu_devices=0
 
 # This bash script looks for the run_alphafold.py script in its current working directory, if it does not exist then exits
 #current_working_dir=$(pwd)
@@ -121,6 +118,7 @@ if [[ "$use_gpu" == true ]] ; then
         export CUDA_VISIBLE_DEVICES=$gpu_devices
     fi
 fi
+echo 'CUDA_VISIBLE_DEVICES: ' $CUDA_VISIBLE_DEVICES
 
 export TF_FORCE_UNIFIED_MEMORY='1'
 export XLA_PYTHON_CLIENT_MEM_FRACTION='4.0'

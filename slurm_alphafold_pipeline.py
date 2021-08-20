@@ -43,6 +43,14 @@ def cli() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__VERSION__)
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument(
+        "-m",
+        "--model_only",
+	action='store_true',
+    help=(
+            'Whether to just run model stage (GPU stage)'
+       ),
+    )
+    parser.add_argument(
         "-n",
         "--num_models",
 	type=int,
@@ -166,16 +174,6 @@ def loggingHelper(verbose=False, filename="slurm_alphafold_pipeline.log"):
 # - Run on es1
 # =======================================================================#
 
-# Replace:
-# TARGET_FASTA = vinN.fasta
-# NAME = vinN
-# PRESET = reduced_dbs
-# HOMOOLIGOMERS = 1
-# MINICONDA = /global/scratch/aanava/miniconda3/bin/activate
-# ALPHAFOLD = /global/scratch/aanava/alphafold
-# ALPHAFOLD_INPUT = /global/scratch/aanava/alphafold_input
-# ALPHAFOLD_DATABASES = /global/scratch/aanava/alphafold_databases
-# ALPHAFOLD_RESULTS = /global/scratch/aanava/alphafold_results
 ALPHAFOLD_FEATURE_TEMPLATE: str = """#!/bin/bash
 #SBATCH --job-name=alphamsa_{NAME}
 #SBATCH --partition=lr6
@@ -185,6 +183,7 @@ ALPHAFOLD_FEATURE_TEMPLATE: str = """#!/bin/bash
 #SBATCH --error={ALPHAFOLD_INPUT}/%j_%x_{NAME}.err
 #SBATCH --time=48:00:00
 #SBATCH -N 1
+#SBATCH --mem 180G
 
 TARGET_FASTA="{TARGET_FASTA}"
 PRESET="{PRESET}"
@@ -198,7 +197,7 @@ echo "HOST: " $(hostname)
 echo "NCPU: " $(nproc)
 echo "RAM:  " $(free -gth | tail -n -1)
 
-time /bin/bash {ALPHAFOLD}/run_feature.sh \\
+/usr/bin/time -v /bin/bash {ALPHAFOLD}/run_feature.sh \\
     -d {ALPHAFOLD_DATABASES} \\
     -o {ALPHAFOLD_RESULTS} \\
     -t 2022-12-31 \\
@@ -208,18 +207,6 @@ time /bin/bash {ALPHAFOLD}/run_feature.sh \\
     -h ${{HOMOOLIGOMERS}}
 """
 
-# Replace:
-# TARGET_FASTA = vinN.fasta
-# NAME = vinN
-# PRESET = reduced_dbs
-# MODELS = model_1,model_2,model_3,model_4,model_5
-# RELAX_STRUCTURES = true
-# HOMOOLIGOMERS = 1
-# MINICONDA = /global/scratch/aanava/miniconda3/bin/activate
-# ALPHAFOLD = /global/scratch/aanava/alphafold
-# ALPHAFOLD_INPUT = /global/scratch/aanava/alphafold_input
-# ALPHAFOLD_DATABASES = /global/scratch/aanava/alphafold_databases
-# ALPHAFOLD_RESULTS = /global/scratch/aanava/alphafold_results
 ALPHAFOLD_MODEL_TEMPLATE: str = """#!/bin/bash
 #SBATCH --job-name=alphamodel_{NAME}
 #SBATCH --partition=es1
@@ -230,6 +217,7 @@ ALPHAFOLD_MODEL_TEMPLATE: str = """#!/bin/bash
 #SBATCH --time=72:00:00
 #SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=4
+#SBATCH --mem 180G
 
 TARGET_FASTA="{TARGET_FASTA}"
 MODELS="{MODELS}"
@@ -247,8 +235,9 @@ cd {ALPHAFOLD}
 echo "HOST: " $(hostname)
 echo "NCPU: " $(nproc)
 echo "RAM:  " $(free -gth | tail -n -1)
+nvidia-smi
 
-time /bin/bash {ALPHAFOLD}/run_alphafold.sh \\
+/usr/bin/time -v /bin/bash {ALPHAFOLD}/run_alphafold.sh \\
 	-d {ALPHAFOLD_DATABASES} \\
 	-o {ALPHAFOLD_RESULTS} \\
 	-t 2022-12-31 \\
@@ -325,27 +314,39 @@ def main(args: dict) -> None:
         with open(model_script_path, 'w') as F:
             F.write(model_script)
         
-        feature_process_command: str = f"sbatch {feature_script_path}"
-        logging.debug(feature_process_command)
-        feature_process = subprocess.run(
-            feature_process_command,
-            stdout=subprocess.PIPE,
-            shell=True,
-            check=True,
-        )
-        feature_process_id: str = feature_process.stdout.decode().strip().split(' ')[-1]
+        if not args['model_only']:
+            feature_process_command: str = f"sbatch {feature_script_path}"
+            logging.debug(feature_process_command)
+            feature_process = subprocess.run(
+                feature_process_command,
+                stdout=subprocess.PIPE,
+                shell=True,
+                check=True,
+            )
+            feature_process_id: str = feature_process.stdout.decode().strip().split(' ')[-1]
 
-        model_process_command: str = f"sbatch --dependency=afterok:{feature_process_id} {model_script_path}"
-        logging.debug(model_process_command)
-        model_process = subprocess.run(
-            model_process_command,
-            stdout=subprocess.PIPE,
-            shell=True,
-            check=True,
-        )
-        model_process_id: str = model_process.stdout.decode().strip().split(' ')[-1]
+            model_process_command: str = f"sbatch --dependency=afterok:{feature_process_id} {model_script_path}"
+            logging.debug(model_process_command)
+            model_process = subprocess.run(
+                model_process_command,
+                stdout=subprocess.PIPE,
+                shell=True,
+                check=True,
+            )
+            model_process_id: str = model_process.stdout.decode().strip().split(' ')[-1]
 
-        logging.debug(f"Launched feature process {feature_process_id} and dependent model process {model_process_id} for {target_fasta}")
+            logging.debug(f"Launched feature process {feature_process_id} and dependent model process {model_process_id} for {target_fasta}")
+        else:
+            model_process_command: str = f"sbatch {model_script_path}"
+            logging.debug(model_process_command)
+            model_process = subprocess.run(
+                model_process_command,
+                stdout=subprocess.PIPE,
+                shell=True,
+                check=True,
+            )
+            model_process_id: str = model_process.stdout.decode().strip().split(' ')[-1]
+            logging.debug(f"Launched model process {model_process_id} for {target_fasta}")
         logging.debug(f"Finished setting up {target_fasta}")
 
     logging.debug(f"Finished running alphafold")

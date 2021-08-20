@@ -3,8 +3,6 @@
 # Author: Sanjay Kumar Srikakulam
 # From https://github.com/kalininalab/alphafold_non_docker
 
-# USAGE: time bash run_alphafold.sh -f protein.fasta
-
 usage() {
         echo ""
         echo "Please make sure all required parameters are given"
@@ -58,10 +56,10 @@ while getopts ":d:o:m:f:t:a:p:g:b:r:h" i; do
                 preset=$OPTARG
         ;;
         r)
-                relax=$OPTARG
+                relax=${OPTARG}
         ;;
         h)
-                homooligomer=$OPTARG
+                homooligomer=${OPTARG}
         ;;
         esac
 done
@@ -88,17 +86,14 @@ if [[ "$preset" == "" ]] ; then
 fi
 
 if [[ "$relax" == "" ]] ; then
-    preset=false
+    relax=false
 fi
 
 if [[ "$homooligomer" == "" ]] ; then
     homooligomer=1
 fi
-
-if [[ "$preset" != "full_dbs" && "$preset" != "reduced_dbs" ]] ; then
-    echo "Unknown preset! Using default ('reduced_dbs')"
-    preset="reduced_dbs"
-fi
+#homooligomer=2
+#gpu_devices=0
 
 # This bash script looks for the run_alphafold.py script in its current working directory, if it does not exist then exits
 #current_working_dir=$(pwd)
