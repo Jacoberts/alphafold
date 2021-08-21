@@ -26,6 +26,7 @@ from absl import app
 from absl import flags
 from absl import logging
 from alphafold.common import protein
+from alphafold.common import residue_constants
 from alphafold.data import pipeline
 from alphafold.data import templates
 from alphafold.model import data
@@ -82,11 +83,18 @@ flags.DEFINE_boolean('benchmark', False, 'Run multiple JAX model evaluations '
                      'to obtain a timing that excludes the compilation time, '
                      'which should be more indicative of the time required for '
                      'inferencing many proteins.')
+flags.DEFINE_boolean('relax', False, 'Whether to run amber relaxation')
 flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'pipeline. By default, this is randomly generated. Note '
                      'that even if this is set, Alphafold may still not be '
                      'deterministic, because processes like GPU inference are '
                      'nondeterministic.')
+flags.DEFINE_string('homooligomer', None, 'The number of oligomers to model '
+                     'protein with. By default, will model as monomer '
+                     '(default: 1)')
+flags.DEFINE_integer('max_recycles', None, 'Max recycles')
+flags.DEFINE_float('tol', None, 'Max recycle tolerance')
+flags.DEFINE_string('complex_name', None, 'Name of protein complex')
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -111,101 +119,31 @@ def predict_structure(
     model_runners: Dict[str, model.RunModel],
     amber_relaxer: relax.AmberRelaxation,
     benchmark: bool,
-    random_seed: int):
+    random_seed: int,
+    homooligomer: str = '1',
+    relax: bool = False):
   """Predicts structure using AlphaFold for the given sequence."""
   timings = {}
-  output_dir = os.path.join(output_dir_base, fasta_name)
+  output_dir = os.path.join(output_dir_base, FLAGS.complex_name)
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
   msa_output_dir = os.path.join(output_dir, 'msas')
   if not os.path.exists(msa_output_dir):
     os.makedirs(msa_output_dir)
 
-  features_output_path = os.path.join(output_dir, 'features.pkl')
-  if not os.path.exists(features_output_path):
-    # Get features.
+  prefix: str = fasta_name
+  pickled_msa_path = os.path.join(msa_output_dir, f'{prefix}.pickle')
+  if not os.path.exists(pickled_msa_path):
     t_0 = time.time()
-    feature_dict = data_pipeline.process(
+    data_pipeline.create_msas(
         input_fasta_path=fasta_path,
         msa_output_dir=msa_output_dir)
-    timings['features'] = time.time() - t_0
+    timings['msas'] = time.time() - t_0
 
-    # Write out features as a pickled dictionary.
-    with open(features_output_path, 'wb') as f:
-      pickle.dump(feature_dict, f, protocol=4)
-  else:
-    with open(features_output_path, 'rb') as f:
-      feature_dict = pickle.load(f)
-
-  relaxed_pdbs = {}
-  plddts = {}
-
-  # Run the models.
-  for model_name, model_runner in model_runners.items():
-    logging.info('Running model %s', model_name)
-    t_0 = time.time()
-    processed_feature_dict = model_runner.process_features(
-        feature_dict, random_seed=random_seed)
-    timings[f'process_features_{model_name}'] = time.time() - t_0
-
-    t_0 = time.time()
-    prediction_result = model_runner.predict(processed_feature_dict)
-    t_diff = time.time() - t_0
-    timings[f'predict_and_compile_{model_name}'] = t_diff
-    logging.info(
-        'Total JAX model %s predict time (includes compilation time, see --benchmark): %.0f?',
-        model_name, t_diff)
-
-    if benchmark:
-      t_0 = time.time()
-      model_runner.predict(processed_feature_dict)
-      timings[f'predict_benchmark_{model_name}'] = time.time() - t_0
-
-    # Get mean pLDDT confidence metric.
-    plddts[model_name] = np.mean(prediction_result['plddt'])
-
-    # Save the model outputs.
-    result_output_path = os.path.join(output_dir, f'result_{model_name}.pkl')
-    with open(result_output_path, 'wb') as f:
-      pickle.dump(prediction_result, f, protocol=4)
-
-    unrelaxed_protein = protein.from_prediction(processed_feature_dict,
-                                                prediction_result)
-
-    unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
-    with open(unrelaxed_pdb_path, 'w') as f:
-      f.write(protein.to_pdb(unrelaxed_protein))
-
-    # Relax the prediction.
-    t_0 = time.time()
-    relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
-    timings[f'relax_{model_name}'] = time.time() - t_0
-
-    relaxed_pdbs[model_name] = relaxed_pdb_str
-
-    # Save the relaxed PDB.
-    relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
-    with open(relaxed_output_path, 'w') as f:
-      f.write(relaxed_pdb_str)
-
-  # Rank by pLDDT and write out relaxed PDBs in rank order.
-  ranked_order = []
-  for idx, (model_name, _) in enumerate(
-      sorted(plddts.items(), key=lambda x: x[1], reverse=True)):
-    ranked_order.append(model_name)
-    ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
-    with open(ranked_output_path, 'w') as f:
-      f.write(relaxed_pdbs[model_name])
-
-  ranking_output_path = os.path.join(output_dir, 'ranking_debug.json')
-  with open(ranking_output_path, 'w') as f:
-    f.write(json.dumps({'plddts': plddts, 'order': ranked_order}, indent=4))
-
-  logging.info('Final timings for %s: %s', fasta_name, timings)
-
-  timings_output_path = os.path.join(output_dir, 'timings.json')
-  with open(timings_output_path, 'w') as f:
-    f.write(json.dumps(timings, indent=4))
+    timings_output_path = os.path.join(output_dir, f'{prefix}_msa_only_timings.json')
+    with open(timings_output_path, 'w') as f:
+      f.write(json.dumps(timings, indent=4))
+  return None
 
 
 def main(argv):
@@ -255,6 +193,9 @@ def main(argv):
   for model_name in FLAGS.model_names:
     model_config = config.model_config(model_name)
     model_config.data.eval.num_ensemble = num_ensemble
+    model_config.data.common.num_recycle = FLAGS.max_recycles
+    model_config.model.num_recycle = FLAGS.max_recycles
+    model_config.model.recycle_tol = FLAGS.tol
     model_params = data.get_model_haiku_params(
         model_name=model_name, data_dir=FLAGS.data_dir)
     model_runner = model.RunModel(model_config, model_params)
@@ -275,6 +216,10 @@ def main(argv):
     random_seed = random.randrange(sys.maxsize)
   logging.info('Using random seed %d for the data pipeline', random_seed)
 
+  homooligomer = FLAGS.homooligomer
+  if homooligomer is None:
+    homooligomer = '1'
+
   # Predict structure for each of the sequences.
   for fasta_path, fasta_name in zip(FLAGS.fasta_paths, fasta_names):
     predict_structure(
@@ -285,7 +230,9 @@ def main(argv):
         model_runners=model_runners,
         amber_relaxer=amber_relaxer,
         benchmark=FLAGS.benchmark,
-        random_seed=random_seed)
+        random_seed=random_seed,
+        homooligomer=homooligomer,
+        relax=FLAGS.relax)
 
 
 if __name__ == '__main__':
@@ -301,6 +248,11 @@ if __name__ == '__main__':
       'template_mmcif_dir',
       'max_template_date',
       'obsolete_pdbs_path',
+      'relax',
+      'homooligomer',
+      'max_recycles',
+      'tol',
+      'complex_name',
   ])
 
   app.run(main)

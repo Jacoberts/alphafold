@@ -83,14 +83,17 @@ flags.DEFINE_boolean('benchmark', False, 'Run multiple JAX model evaluations '
                      'to obtain a timing that excludes the compilation time, '
                      'which should be more indicative of the time required for '
                      'inferencing many proteins.')
+flags.DEFINE_boolean('relax', False, 'Whether to run amber relaxation')
 flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'pipeline. By default, this is randomly generated. Note '
                      'that even if this is set, Alphafold may still not be '
                      'deterministic, because processes like GPU inference are '
                      'nondeterministic.')
-flags.DEFINE_integer('homooligomer', None, 'The number of oligomers to model '
+flags.DEFINE_string('homooligomer', None, 'The number of oligomers to model '
                      'protein with. By default, will model as monomer '
                      '(default: 1)')
+flags.DEFINE_integer('max_recycles', None, 'Max recycles')
+flags.DEFINE_float('tol', None, 'Max recycle tolerance')
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -116,7 +119,8 @@ def predict_structure(
     amber_relaxer: relax.AmberRelaxation,
     benchmark: bool,
     random_seed: int,
-    homooligomer: int = 1):
+    homooligomer: str = '1',
+    relax: bool = False):
   """Predicts structure using AlphaFold for the given sequence."""
   timings = {}
   output_dir = os.path.join(output_dir_base, fasta_name)
@@ -192,7 +196,7 @@ def predict_structure(
 
     unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
 
-    if homooligomer == 1:
+    if relax and homooligomer=='1':
       # Relax the prediction.
       t_0 = time.time()
       relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
@@ -211,12 +215,12 @@ def predict_structure(
       sorted(plddts.items(), key=lambda x: x[1], reverse=True)):
     ranked_order.append(model_name)
     ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
-    if homooligomer > 1:
-      with open(ranked_output_path, 'w') as f:
-        f.write(unrelaxed_pdbs[model_name])
-    else:
+    try:
       with open(ranked_output_path, 'w') as f:
         f.write(relaxed_pdbs[model_name])
+    except:
+      with open(ranked_output_path, 'w') as f:
+        f.write(unrelaxed_pdbs[model_name])
 
   ranking_output_path = os.path.join(output_dir, 'ranking_debug.json')
   with open(ranking_output_path, 'w') as f:
@@ -276,6 +280,9 @@ def main(argv):
   for model_name in FLAGS.model_names:
     model_config = config.model_config(model_name)
     model_config.data.eval.num_ensemble = num_ensemble
+    model_config.data.common.num_recycle = FLAGS.max_recycles
+    model_config.model.num_recycle = FLAGS.max_recycles
+    model_config.model.recycle_tol = FLAGS.tol
     model_params = data.get_model_haiku_params(
         model_name=model_name, data_dir=FLAGS.data_dir)
     model_runner = model.RunModel(model_config, model_params)
@@ -298,7 +305,7 @@ def main(argv):
 
   homooligomer = FLAGS.homooligomer
   if homooligomer is None:
-    homooligomer = 1
+    homooligomer = '1'
 
   # Predict structure for each of the sequences.
   for fasta_path, fasta_name in zip(FLAGS.fasta_paths, fasta_names):
@@ -311,7 +318,8 @@ def main(argv):
         amber_relaxer=amber_relaxer,
         benchmark=FLAGS.benchmark,
         random_seed=random_seed,
-        homooligomer=homooligomer)
+        homooligomer=homooligomer,
+        relax=FLAGS.relax)
 
 
 if __name__ == '__main__':
@@ -327,7 +335,10 @@ if __name__ == '__main__':
       'template_mmcif_dir',
       'max_template_date',
       'obsolete_pdbs_path',
+      'relax',
       'homooligomer',
+      'max_recycles',
+      'tol',
   ])
 
   app.run(main)
