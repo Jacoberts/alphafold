@@ -20,6 +20,7 @@ from alphafold.model.tf import proteins_dataset
 import ml_collections
 import numpy as np
 import tensorflow.compat.v1 as tf
+tf.config.set_visible_devices([], 'GPU')
 
 FeatureDict = Mapping[str, np.ndarray]
 

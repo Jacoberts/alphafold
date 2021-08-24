@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-
 """This CLI tool is meant to run alphafold using slurm lawrencium
 resources. Tools for protein complex modeling were adapted from
 https://github.com/sokrypton/ColabFold"""
 __VERSION__ = "8/21/21"
 __AUTHOR__ = "Alberto Nava <aanava@lbl.gov>"
-
 
 # =======================================================================#
 # Importations
@@ -17,8 +15,9 @@ import logging
 
 # Native Python libraries
 import os
+import shutil
 import subprocess
-from typing import List
+from typing import List, Tuple, Sequence
 
 # Non-native python libraries
 from Bio import SeqIO
@@ -26,6 +25,7 @@ from Bio import SeqIO
 # =======================================================================#
 # Command-Line Interface
 # =======================================================================#
+
 
 def cli() -> argparse.ArgumentParser:
     """ Command-Line Interface Function
@@ -41,144 +41,120 @@ def cli() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         description=("A CLI for running alphafold on lawrencium"),
-	formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=__VERSION__)
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument(
         "-m",
         "--model_only",
-	action='store_true',
-    help=(
-            'Whether to just run model stage (GPU stage)'
-       ),
+        action='store_true',
+        help=('Whether to just run model stage (GPU stage)'),
     )
     parser.add_argument(
         "-n",
         "--num_models",
-	type=int,
-	default=5,
-        help=(
-            'Number of models to make for each target_fasta'
-       ),
+        type=int,
+        default=5,
+        help=('Number of models to make for each target_fasta'),
     )
     parser.add_argument(
         "-r",
         "--relax",
-	action='store_true',
-        help=(
-            'Whether to relax structures with Amber Molecular Dynamics. '
-            'Note, cannot relax when homooligomers > 1'
-       ),
+        action='store_true',
+        help=('Whether to relax structures with Amber Molecular Dynamics. '
+              'Note, cannot relax when homooligomers > 1'),
     )
     parser.add_argument(
         "-p",
         "--preset",
-	type=str,
-	default="reduced_dbs",
-	choices=["reduced_dbs", "full_dbs"],
-        help=(
-            'Alphafold database preset: reduced_dbs or full_dbs'
-       ),
+        type=str,
+        default="reduced_dbs",
+        choices=["reduced_dbs", "full_dbs"],
+        help=('Alphafold database preset: reduced_dbs or full_dbs'),
     )
     parser.add_argument(
         "-H",
         "--homooligomers",
-	type=str,
-	default='1',
-    help=(
-            'From ColabFold: Define number of copies in homo-oligomeric assembly. Use : '
-            'to specify different homooligomeric state for each component '
-            'For example, sequence:ABC:DEF, homooligomer: 2:1, the first protein '
-            'ABC will be modeled as a homodimer (2 copies) and second DEF a '
-            'monomer (1 copy).'
-       ),
+        type=str,
+        default='1',
+        help=('From ColabFold: Define number of copies in homo-oligomeric '
+              'assembly. Use : to specify different homooligomeric state '
+              'for each component. For example, sequence:ABC:DEF, '
+              'homooligomer: 2:1, the first protein ABC will be modeled as '
+              'a homodimer (2 copies) and second DEF a monomer (1 copy).'),
     )
     parser.add_argument(
         "--max_recycles",
-	type=int,
-	default=3,
-    help=(
-            'From ColabFold: max_recycles controls the maximum number of '
-            'times the structure is fed back into the neural network for '
-            'refinement. (3 recommended)'
-      ),
+        type=int,
+        default=3,
+        help=('From ColabFold: max_recycles controls the maximum number of '
+              'times the structure is fed back into the neural network for '
+              'refinement. (3 recommended)'),
     )
     parser.add_argument(
         "--tol",
-	type=float,
-	default=0.0,
-    help=(
-            'From ColabFold: tol tolerance for deciding when to stop '
-            'recycles (CA-RMS between recycles)'
-      ),
+        type=float,
+        default=0.0,
+        help=('From ColabFold: tol tolerance for deciding when to stop '
+              'recycles (CA-RMS between recycles)'),
     )
     parser.add_argument(
         "--use_ptm",
-	action='store_true',
-    help=(
-            'From ColabFold: use_ptm uses Deepminds ptm finetuned model '
-            'parameters to get PAE per structure. Disable to use the '
-            'original model params. (Disabling may give alternative '
-            'structures.)'
-       ),
+        action='store_true',
+        help=('From ColabFold: use_ptm uses Deepminds ptm finetuned model '
+              'parameters to get PAE per structure. Disable to use the '
+              'original model params. (Disabling may give alternative '
+              'structures.)'),
     )
     parser.add_argument(
         "--alphafold",
-	type=str,
-	default="/global/scratch/aanava/alphafold",
+        type=str,
+        default="/global/scratch/aanava/alphafold",
         help=(
-            'Path to alphafold git repo with non-docker helper shell scripts'
-       ),
+            'Path to alphafold git repo with non-docker helper shell scripts'),
     )
     parser.add_argument(
         "--alphafold_input",
-	type=str,
-	default="/global/scratch/aanava/alphafold_input",
-        help=(
-            'Path to folder containing target_fastas'
-       ),
+        type=str,
+        default="/global/scratch/aanava/alphafold_input",
+        help=('Path to folder containing target_fastas'),
     )
     parser.add_argument(
         "--alphafold_databases",
-	type=str,
-	default="/global/scratch/aanava/alphafold_databases",
-        help=(
-            'Path to folder containing alphafold databases'
-       ),
+        type=str,
+        default="/global/scratch/aanava/alphafold_databases",
+        help=('Path to folder containing alphafold databases'),
     )
     parser.add_argument(
         "--alphafold_results",
-	type=str,
-	default="/global/scratch/aanava/alphafold_results",
-        help=(
-            'Path to alphafold output folder'
-       ),
+        type=str,
+        default="/global/scratch/aanava/alphafold_results",
+        help=('Path to alphafold output folder'),
     )
     parser.add_argument(
         "--miniconda",
-	type=str,
-	default="/global/scratch/aanava/miniconda3/bin/activate",
-        help=(
-            'Path to miniconda activate script'
-       ),
+        type=str,
+        default="/global/scratch/aanava/miniconda3/bin/activate",
+        help=('Path to miniconda activate script'),
     )
     parser.add_argument(
         "--gpu_devices",
-	type=str,
-	default="0",
-        help=(
-            'CUDA_VISIBLE_DEVICES'
-       ),
+        type=str,
+        default="0",
+        help=('CUDA_VISIBLE_DEVICES'),
+    )
+    parser.add_argument(
+        "--turbo",
+        action='store_true',
+        help=('Whether to use alphafold turbo models'),
     )
     parser.add_argument(
         "target_fastas",
         type=str,
-	nargs='+',
-        help=(
-            "Names of target fastas. Should have one sequence per file. No "
-            "stop codons"
-        ),
+        nargs='+',
+        help=("Names of target fastas. Should have one sequence per file. No "
+              "stop codons"),
     )
     return parser
 
@@ -208,6 +184,7 @@ def loggingHelper(verbose=False, filename="slurm_alphafold_pipeline.log"):
     console = logging.StreamHandler()
     logging.getLogger().addHandler(console)
     return None
+
 
 # =======================================================================#
 # SLURM Script Templates
@@ -264,10 +241,57 @@ kalign_binary_path=$(which kalign)
 
 if [[ $preset == "reduced_dbs" ]]; then
     echo 'Creating reduced_dbs features.pkl'
-    $(/usr/bin/time -v python $alphafold_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniref90_database_path=$uniref90_database_path --small_bfd_database_path=$small_bfd_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer --max_recycles=$max_recycles --tol=$tol {COMPLEX_NAME})
+    $(/usr/bin/time -v python $alphafold_script \
+        --hhblits_binary_path=$hhblits_binary_path \
+        --hhsearch_binary_path=$hhsearch_binary_path \
+        --jackhmmer_binary_path=$jackhmmer_binary_path \
+        --kalign_binary_path=$kalign_binary_path \
+        --mgnify_database_path=$mgnify_database_path \
+        --template_mmcif_dir=$template_mmcif_dir \
+        --obsolete_pdbs_path=$obsolete_pdbs_path \
+        --pdb70_database_path=$pdb70_database_path \
+        --uniref90_database_path=$uniref90_database_path \
+        --small_bfd_database_path=$small_bfd_database_path \
+        --data_dir=$data_dir \
+        --output_dir=$output_dir \
+        --fasta_paths=$fasta_path \
+        --model_names=$model_names \
+        --max_template_date=$max_template_date \
+        --preset=$preset \
+        --benchmark=$benchmark \
+        --logtostderr \
+        --homooligomer=$homooligomer \
+        --max_recycles=$max_recycles \
+        --tol=$tol \
+        {COMPLEX_NAME} \
+        {TURBO})
 else
     echo 'Creating full_dbs features.pkl'
-    $(/usr/bin/time -v python $alphafold_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --bfd_database_path=$bfd_database_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniclust30_database_path=$uniclust30_database_path --uniref90_database_path=$uniref90_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer --max_recycles=$max_recycles --tol=$tol {COMPLEX_NAME})
+    $(/usr/bin/time -v python $alphafold_script \
+        --hhblits_binary_path=$hhblits_binary_path \
+        --hhsearch_binary_path=$hhsearch_binary_path \
+        --jackhmmer_binary_path=$jackhmmer_binary_path \
+        --kalign_binary_path=$kalign_binary_path \
+        --bfd_database_path=$bfd_database_path \
+        --mgnify_database_path=$mgnify_database_path \
+        --template_mmcif_dir=$template_mmcif_dir \
+        --obsolete_pdbs_path=$obsolete_pdbs_path \
+        --pdb70_database_path=$pdb70_database_path \
+        --uniclust30_database_path=$uniclust30_database_path \
+        --uniref90_database_path=$uniref90_database_path \
+        --data_dir=$data_dir \
+        --output_dir=$output_dir \
+        --fasta_paths=$fasta_path \
+        --model_names=$model_names \
+        --max_template_date=$max_template_date \
+        --preset=$preset \
+        --benchmark=$benchmark \
+        --logtostderr \
+        --homooligomer=$homooligomer \
+        --max_recycles=$max_recycles \
+        --tol=$tol \
+        {COMPLEX_NAME} \
+        {TURBO})
 fi
 """
 
@@ -327,10 +351,57 @@ export XLA_PYTHON_CLIENT_MEM_FRACTION='4.0'
 
 if [[ $preset == "reduced_dbs" ]]; then
     echo 'Running alphafold'
-    $(/usr/bin/time -v python $alphafold_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniref90_database_path=$uniref90_database_path --small_bfd_database_path=$small_bfd_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer --relax=$relax --max_recycles=$max_recycles --tol=$tol)
+    $(/usr/bin/time -v python $alphafold_script \
+        --hhblits_binary_path=$hhblits_binary_path \
+        --hhsearch_binary_path=$hhsearch_binary_path \
+        --jackhmmer_binary_path=$jackhmmer_binary_path \
+        --kalign_binary_path=$kalign_binary_path \
+        --mgnify_database_path=$mgnify_database_path \
+        --template_mmcif_dir=$template_mmcif_dir \
+        --obsolete_pdbs_path=$obsolete_pdbs_path \
+        --pdb70_database_path=$pdb70_database_path \
+        --uniref90_database_path=$uniref90_database_path \
+        --small_bfd_database_path=$small_bfd_database_path \
+        --data_dir=$data_dir \
+        --output_dir=$output_dir \
+        --fasta_paths=$fasta_path \
+        --model_names=$model_names \
+        --max_template_date=$max_template_date \
+        --preset=$preset \
+        --benchmark=$benchmark \
+        --logtostderr \
+        --homooligomer=$homooligomer \
+        --relax=$relax \
+        --max_recycles=$max_recycles \
+        --tol=$tol \
+        {TURBO})
 else
     echo 'Running alphafold'
-    $(/usr/bin/time -v python $alphafold_script --hhblits_binary_path=$hhblits_binary_path --hhsearch_binary_path=$hhsearch_binary_path --jackhmmer_binary_path=$jackhmmer_binary_path --kalign_binary_path=$kalign_binary_path --bfd_database_path=$bfd_database_path --mgnify_database_path=$mgnify_database_path --template_mmcif_dir=$template_mmcif_dir --obsolete_pdbs_path=$obsolete_pdbs_path --pdb70_database_path=$pdb70_database_path --uniclust30_database_path=$uniclust30_database_path --uniref90_database_path=$uniref90_database_path --data_dir=$data_dir --output_dir=$output_dir --fasta_paths=$fasta_path --model_names=$model_names --max_template_date=$max_template_date --preset=$preset --benchmark=$benchmark --logtostderr --homooligomer=$homooligomer --relax=$relax --max_recycles=$max_recycles --tol=$tol)
+    $(/usr/bin/time -v python $alphafold_script \
+        --hhblits_binary_path=$hhblits_binary_path \
+        --hhsearch_binary_path=$hhsearch_binary_path \
+        --jackhmmer_binary_path=$jackhmmer_binary_path \
+        --kalign_binary_path=$kalign_binary_path \
+        --bfd_database_path=$bfd_database_path \
+        --mgnify_database_path=$mgnify_database_path \
+        --template_mmcif_dir=$template_mmcif_dir \
+        --obsolete_pdbs_path=$obsolete_pdbs_path \
+        --pdb70_database_path=$pdb70_database_path \
+        --uniclust30_database_path=$uniclust30_database_path \
+        --uniref90_database_path=$uniref90_database_path \
+        --data_dir=$data_dir \
+        --output_dir=$output_dir \
+        --fasta_paths=$fasta_path \
+        --model_names=$model_names \
+        --max_template_date=$max_template_date \
+        --preset=$preset \
+        --benchmark=$benchmark \
+        --logtostderr \
+        --homooligomer=$homooligomer \
+        --relax=$relax \
+        --max_recycles=$max_recycles \
+        --tol=$tol \
+        {TURBO})
 fi
 """
 
@@ -338,29 +409,34 @@ fi
 # Main
 # =======================================================================#
 
-def create_combine_msa_script(target_fasta: str, args: dict, complex_name: str) -> str:
+
+def create_combine_msa_script(target_fasta: str, args: dict,
+                              complex_name: str) -> str:
     name: str = os.path.splitext(os.path.basename(target_fasta))[0]
     output_dir: str = os.path.join(args['alphafold_results'], complex_name)
     logs_dir: str = os.path.join(output_dir, 'logs')
-    msa_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(**{
-        "TARGET_FASTA": target_fasta,
-        "NAME": name,
-        "PRESET": args['preset'],
-        "HOMOOLIGOMERS": args['homooligomers'],
-        "MINICONDA": args['miniconda'],
-        "ALPHAFOLD": args['alphafold'],
-        "ALPHAFOLD_INPUT": args['alphafold_input'],
-        "ALPHAFOLD_LOGS": logs_dir,
-        "ALPHAFOLD_DATABASES": args['alphafold_databases'],
-        "ALPHAFOLD_RESULTS": args['alphafold_results'],
-        "PURPOSE": 'run_combine_msas',
-        "MAX_RECYCLES": args['max_recycles'],
-        "TOL": args['tol'],
-        "COMPLEX_NAME": f'--complex_name={complex_name}',
-        "PARTITION": 'lr3',
-        "PARTITION_MEM": '48G',
-    })
-    msa_script_path: str = os.path.join(output_dir, f'submit_combine_msa_{complex_name}.slurm')
+    msa_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
+        **{
+            "TARGET_FASTA": target_fasta,
+            "NAME": name,
+            "PRESET": args['preset'],
+            "HOMOOLIGOMERS": args['homooligomers'],
+            "MINICONDA": args['miniconda'],
+            "ALPHAFOLD": args['alphafold'],
+            "ALPHAFOLD_INPUT": args['alphafold_input'],
+            "ALPHAFOLD_LOGS": logs_dir,
+            "ALPHAFOLD_DATABASES": args['alphafold_databases'],
+            "ALPHAFOLD_RESULTS": args['alphafold_results'],
+            "PURPOSE": 'run_combine_msas',
+            "MAX_RECYCLES": args['max_recycles'],
+            "TOL": args['tol'],
+            "COMPLEX_NAME": f'--complex_name={complex_name}',
+            "PARTITION": 'lr3',
+            "PARTITION_MEM": '48G',
+            "TURBO": f'--turbo={args["turbo"]}',
+        })
+    msa_script_path: str = os.path.join(
+        output_dir, f'submit_combine_msa_{complex_name}.slurm')
     with open(msa_script_path, 'w') as F:
         F.write(msa_script)
     return msa_script_path
@@ -370,25 +446,29 @@ def create_msa_script(target_fasta: str, args: dict, complex_name: str) -> str:
     name: str = os.path.splitext(os.path.basename(target_fasta))[0]
     output_dir: str = os.path.join(args['alphafold_results'], complex_name)
     logs_dir: str = os.path.join(output_dir, 'logs')
-    msa_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(**{
-        "TARGET_FASTA": os.path.join(args['alphafold_input'], target_fasta),
-        "NAME": name,
-        "PRESET": args['preset'],
-        "HOMOOLIGOMERS": args['homooligomers'],
-        "MINICONDA": args['miniconda'],
-        "ALPHAFOLD": args['alphafold'],
-        "ALPHAFOLD_INPUT": args['alphafold_input'],
-        "ALPHAFOLD_LOGS": logs_dir,
-        "ALPHAFOLD_DATABASES": args['alphafold_databases'],
-        "ALPHAFOLD_RESULTS": args['alphafold_results'],
-        "PURPOSE": 'run_msas',
-        "MAX_RECYCLES": args['max_recycles'],
-        "TOL": args['tol'],
-        "COMPLEX_NAME": f'--complex_name={complex_name}',
-        "PARTITION": 'lr6',
-        "PARTITION_MEM": '180G',
-    })
-    msa_script_path: str = os.path.join(output_dir, f'submit_create_msa_{complex_name}_{name}.slurm')
+    msa_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
+        **{
+            "TARGET_FASTA": os.path.join(args['alphafold_input'],
+                                         target_fasta),
+            "NAME": name,
+            "PRESET": args['preset'],
+            "HOMOOLIGOMERS": args['homooligomers'],
+            "MINICONDA": args['miniconda'],
+            "ALPHAFOLD": args['alphafold'],
+            "ALPHAFOLD_INPUT": args['alphafold_input'],
+            "ALPHAFOLD_LOGS": logs_dir,
+            "ALPHAFOLD_DATABASES": args['alphafold_databases'],
+            "ALPHAFOLD_RESULTS": args['alphafold_results'],
+            "PURPOSE": 'run_msas',
+            "MAX_RECYCLES": args['max_recycles'],
+            "TOL": args['tol'],
+            "COMPLEX_NAME": f'--complex_name={complex_name}',
+            "PARTITION": 'lr6',
+            "PARTITION_MEM": '180G',
+            "TURBO": '',
+        })
+    msa_script_path: str = os.path.join(
+        output_dir, f'submit_create_msa_{complex_name}_{name}.slurm')
     with open(msa_script_path, 'w') as F:
         F.write(msa_script)
     return msa_script_path
@@ -398,59 +478,71 @@ def create_feature_script(target_fasta: str, args: dict) -> str:
     name: str = os.path.splitext(os.path.basename(target_fasta))[0]
     output_dir: str = os.path.join(args['alphafold_results'], name)
     logs_dir: str = os.path.join(output_dir, 'logs')
-    feature_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(**{
-        "TARGET_FASTA": os.path.join(args['alphafold_input'], target_fasta),
-        "NAME": name,
-        "PRESET": args['preset'],
-        "HOMOOLIGOMERS": args['homooligomers'],
-        "MINICONDA": args['miniconda'],
-        "ALPHAFOLD": args['alphafold'],
-        "ALPHAFOLD_INPUT": args['alphafold_input'],
-        "ALPHAFOLD_LOGS": logs_dir,
-        "ALPHAFOLD_DATABASES": args['alphafold_databases'],
-        "ALPHAFOLD_RESULTS": args['alphafold_results'],
-        "PURPOSE": 'run_feature',
-        "MAX_RECYCLES": args['max_recycles'],
-        "TOL": args['tol'],
-        "COMPLEX_NAME": '',
-        "PARTITION": 'lr6',
-        "PARTITION_MEM": '180G',
-    })
-    feature_script_path: str = os.path.join(output_dir, f'submit_features_{name}.slurm')
+    feature_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
+        **{
+            "TARGET_FASTA": os.path.join(args['alphafold_input'],
+                                         target_fasta),
+            "NAME": name,
+            "PRESET": args['preset'],
+            "HOMOOLIGOMERS": args['homooligomers'],
+            "MINICONDA": args['miniconda'],
+            "ALPHAFOLD": args['alphafold'],
+            "ALPHAFOLD_INPUT": args['alphafold_input'],
+            "ALPHAFOLD_LOGS": logs_dir,
+            "ALPHAFOLD_DATABASES": args['alphafold_databases'],
+            "ALPHAFOLD_RESULTS": args['alphafold_results'],
+            "PURPOSE": 'run_feature',
+            "MAX_RECYCLES": args['max_recycles'],
+            "TOL": args['tol'],
+            "COMPLEX_NAME": '',
+            "PARTITION": 'lr6',
+            "PARTITION_MEM": '180G',
+            "TURBO": '',
+        })
+    feature_script_path: str = os.path.join(output_dir,
+                                            f'submit_features_{name}.slurm')
     with open(feature_script_path, 'w') as F:
         F.write(feature_script)
     return feature_script_path
 
+
 def create_model_script(target_fasta: str, args: dict) -> str:
     name: str = os.path.splitext(os.path.basename(target_fasta))[0]
     if args['use_ptm']:
-        models: str = ','.join([f'model_{i}_ptm' for i in range(1, args['num_models']+1)])
+        models: str = ','.join(
+            [f'model_{i}_ptm' for i in range(1, args['num_models'] + 1)])
     else:
-        models: str = ','.join([f'model_{i}' for i in range(1, args['num_models']+1)])
+        models: str = ','.join(
+            [f'model_{i}' for i in range(1, args['num_models'] + 1)])
     relax: str = 'true' if args['relax'] else 'false'
     output_dir: str = os.path.join(args['alphafold_results'], name)
     logs_dir: str = os.path.join(output_dir, 'logs')
-    model_script: str = ALPHAFOLD_MODEL_TEMPLATE.format(**{
-        "TARGET_FASTA": os.path.join(args['alphafold_input'], target_fasta),
-        "NAME": name,
-        "PRESET": args['preset'],
-        "HOMOOLIGOMERS": args['homooligomers'],
-        "MODELS": models,
-        "RELAX_STRUCTURES": relax,
-        "MINICONDA": args['miniconda'],
-        "ALPHAFOLD": args['alphafold'],
-        "ALPHAFOLD_INPUT": args['alphafold_input'],
-        "ALPHAFOLD_LOGS": logs_dir,
-        "ALPHAFOLD_DATABASES": args['alphafold_databases'],
-        "ALPHAFOLD_RESULTS": args['alphafold_results'],
-        "GPU_DEVICES": args['gpu_devices'],
-        "MAX_RECYCLES": args['max_recycles'],
-        "TOL": args['tol'],
-    })
-    model_script_path: str = os.path.join(output_dir, f'submit_models_{name}.slurm')
+    model_script: str = ALPHAFOLD_MODEL_TEMPLATE.format(
+        **{
+            "TARGET_FASTA": os.path.join(args['alphafold_input'],
+                                         target_fasta),
+            "NAME": name,
+            "PRESET": args['preset'],
+            "HOMOOLIGOMERS": args['homooligomers'],
+            "MODELS": models,
+            "RELAX_STRUCTURES": relax,
+            "MINICONDA": args['miniconda'],
+            "ALPHAFOLD": args['alphafold'],
+            "ALPHAFOLD_INPUT": args['alphafold_input'],
+            "ALPHAFOLD_LOGS": logs_dir,
+            "ALPHAFOLD_DATABASES": args['alphafold_databases'],
+            "ALPHAFOLD_RESULTS": args['alphafold_results'],
+            "GPU_DEVICES": args['gpu_devices'],
+            "MAX_RECYCLES": args['max_recycles'],
+            "TOL": args['tol'],
+            "TURBO": f'--turbo={args["turbo"]}',
+        })
+    model_script_path: str = os.path.join(output_dir,
+                                          f'submit_models_{name}.slurm')
     with open(model_script_path, 'w') as F:
         F.write(model_script)
     return model_script_path
+
 
 def launch_slurm_process(command: str) -> str:
     logging.debug(command)
@@ -462,7 +554,40 @@ def launch_slurm_process(command: str) -> str:
     )
     process_id: str = process.stdout.decode().strip().split(' ')[-1]
     return process_id
-    
+
+
+def parse_fasta(fasta_string: str) -> Tuple[Sequence[str], Sequence[str]]:
+    """Parses FASTA string and returns list of strings with amino-acid sequences.
+
+    Notes:
+      Function from deepmind alphafold
+
+    Arguments:
+      fasta_string: The string contents of a FASTA file.
+
+    Returns:
+      A tuple of two lists:
+      * A list of sequences.
+      * A list of sequence descriptions taken from the comment lines. In the
+        same order as the sequences.
+    """
+    sequences = []
+    descriptions = []
+    index = -1
+    for line in fasta_string.splitlines():
+        line = line.strip()
+        if line.startswith('>'):
+            index += 1
+            descriptions.append(line[1:])  # Remove the '>' at the beginning.
+            sequences.append('')
+            continue
+        elif not line:
+            continue  # Skip blank lines.
+        sequences[index] += line
+
+    return sequences, descriptions
+
+
 def main(args: dict) -> None:
     """ Command-Line Main Function
 
@@ -483,19 +608,40 @@ def main(args: dict) -> None:
     assert os.path.isdir(args['alphafold_databases'])
     assert os.path.isdir(args['alphafold_results'])
     for target_fasta in args['target_fastas']:
-        assert os.path.exists(os.path.join(args['alphafold_input'], target_fasta))
+        assert os.path.exists(
+            os.path.join(args['alphafold_input'], target_fasta))
 
-    logging.debug(f"Beginning to run alphafold")
+    logging.debug("Beginning to run alphafold")
 
-    for target_fasta in args['target_fastas']:	
+    for target_fasta in args['target_fastas']:
         logging.debug(f"Setting up {target_fasta}")
-    
-        ori_sequence: str = str(SeqIO.read(os.path.join(args['alphafold_input'], target_fasta), 'fasta').seq) # ori_sequence = "MLASVAS:ASVASDV"
-        sequence: str = ori_sequence.replace(':', '') # sequence = "MLASVASASVASDV"
-        seqs: List[str] = ori_sequence.split(':') # seqs = ["MLASVAS", "ASVASDV"]
-        homooligomer: str = args['homooligomers'] # homooligomer = "2:2"
-        homooligomers: List[int] = [int(h) for h in args['homooligomers'].split(':')] # homooligomers = [2, 2]
-        full_sequence: str = "".join([s*h for s, h in zip(seqs,homooligomers)]) # full_sequence = "MLASVASMLASVASASVASDVASVASDV"
+
+        with open(os.path.join(args['alphafold_input'], target_fasta),
+                  'r') as F:
+            raw_fasta: str = F.read()
+        ori_sequence: str = parse_fasta(raw_fasta)[0][
+            0]  # ori_sequence = "MLASVAS:ASVASDV"
+        seqs: List[str] = ori_sequence.split(
+            ':')  # seqs = ["MLASVAS", "ASVASDV"]
+        homooligomer: str = args['homooligomers']  # homooligomer = "2:2"
+        homooligomers: List[int] = [
+            int(h) for h in args['homooligomers'].split(':')
+        ]  # homooligomers = [2, 2]
+        assert len(homooligomers) == 1 or len(homooligomers) == len(seqs)
+        if len(homooligomers) == 1 and len(seqs) > 1:
+            homooligomers *= len(seqs)
+            homooligomer = ':'.join(str(h) for h in homooligomers)
+        full_sequence: str = "".join([
+            s * h for s, h in zip(seqs, homooligomers)
+        ])  # full_sequence = "MLASVASMLASVASASVASDVASVASDV"
+        logging.debug(f"Original homooligomer: {args['homooligomers']}")
+        logging.debug(f"Parsed homooligomer: {homooligomer}")
+        logging.debug(f"Parsed homooligomers: {str(homooligomers)}")
+        logging.debug(f"Original Sequence: {ori_sequence}")
+        logging.debug(f"Split Sequences: {str(seqs)}")
+        logging.debug(f"Full Sequence: {full_sequence}")
+        logging.debug(f"Total length of {target_fasta}: {len(full_sequence)}")
+        args['homooligomers'] = homooligomer
 
         name: str = os.path.splitext(target_fasta)[0]
         output_directory: str = os.path.join(args['alphafold_results'], name)
@@ -503,34 +649,41 @@ def main(args: dict) -> None:
         logs_directory: str = os.path.join(output_directory, 'logs')
         os.makedirs(msas_directory, exist_ok=True)
         os.makedirs(logs_directory, exist_ok=True)
+        if not os.path.exists(os.path.join(output_directory, target_fasta)):
+            shutil.copy2(os.path.join(args['alphafold_input'], target_fasta),
+                         os.path.join(output_directory, target_fasta))
 
+        model_script_path: str
         if len(seqs) == 1:
             assert len(homooligomers) == 1
             feature_script_path: str = create_feature_script(
-                target_fasta=os.path.join(args['alphafold_input'], target_fasta), args=args)
-            model_script_path: str = create_model_script(
-                target_fasta=os.path.join(args['alphafold_input'], target_fasta), args=args)
-            
+                target_fasta=os.path.join(args['alphafold_input'],
+                                          target_fasta),
+                args=args)
+            model_script_path = create_model_script(target_fasta=os.path.join(
+                args['alphafold_input'], target_fasta),
+                                                    args=args)
+
+            model_process_id: str
             if not args['model_only']:
                 feature_process_id: str = launch_slurm_process(
                     f"sbatch {feature_script_path}")
 
-                model_process_id: str = launch_slurm_process(
-                    f"sbatch --dependency=afterok:{feature_process_id} {model_script_path}")
+                model_process_id = launch_slurm_process(
+                    f"sbatch --dependency=afterok:{feature_process_id} {model_script_path}"  # noqa: E501
+                )
 
                 logging.debug(
-                    f"Launched feature process {feature_process_id} and dependent model process {model_process_id} for {target_fasta}")
+                    f"Launched feature process {feature_process_id} and "
+                    f"dependent model process {model_process_id} for "
+                    f"{target_fasta}")
             else:
-                model_process_id: str = launch_slurm_process(
+                model_process_id = launch_slurm_process(
                     f"sbatch {model_script_path}")
 
-                logging.debug(f"Launched model process {model_process_id} for {target_fasta}")
+                logging.debug(f"Launched model process {model_process_id} for "
+                              f"{target_fasta}")
         else:
-            assert len(homooligomers)==1 or len(homooligomers)==len(seqs)
-            if len(homooligomers)==1:
-                homooligomers *= len(seqs)
-                homooligomer = ':'.join(str(h) for h in homooligomers)
-
             msa_scripts: List[str] = []
             for i, seq in enumerate(seqs):
                 tmp_seq_path = os.path.join(msas_directory, f'{i}.fasta')
@@ -540,22 +693,40 @@ def main(args: dict) -> None:
                     target_fasta=tmp_seq_path, args=args, complex_name=name)
                 msa_scripts.append(msa_script_path)
             combine_msa_script_path: str = create_combine_msa_script(
-                target_fasta=os.path.join(args['alphafold_input'], target_fasta), args=args, complex_name=name)
-            model_script_path: str = create_model_script(
-                target_fasta=os.path.join(args['alphafold_input'], target_fasta), args=args)
-            
-            msa_script_ids: List[str] = []
-            for msa_script in msa_scripts:
-                msa_script_id: str = launch_slurm_process(f"sbatch {msa_script}")
-                msa_script_ids.append(msa_script_id)
-            combine_msa_script_id: str = launch_slurm_process(
-                f"sbatch --dependency=afterok:{':'.join(msa_script_ids)} {combine_msa_script_path}")
-            model_script_id: str = launch_slurm_process(
-                f"sbatch --dependency=afterok:{combine_msa_script_id} {model_script_path}")
+                target_fasta=os.path.join(args['alphafold_input'],
+                                          target_fasta),
+                args=args,
+                complex_name=name)
+            model_script_path = create_model_script(target_fasta=os.path.join(
+                args['alphafold_input'], target_fasta),
+                                                    args=args)
+            model_script_id: str
+            if not args['model_only']:
+                msa_script_ids: List[str] = []
+                for msa_script in msa_scripts:
+                    msa_script_id: str = launch_slurm_process(
+                        f"sbatch {msa_script}")
+                    msa_script_ids.append(msa_script_id)
+                combine_msa_script_id: str = launch_slurm_process(
+                    f"sbatch --dependency=afterok:{':'.join(msa_script_ids)} {combine_msa_script_path}"  # noqa: E501
+                )
+                model_script_id = launch_slurm_process(
+                    f"sbatch --dependency=afterok:{combine_msa_script_id} {model_script_path}"  # noqa: E501
+                )
+                logging.debug(
+                    f"Launched msa processes {str(msa_script_ids)} and"
+                    f" dependent combine msa process {combine_msa_script_id} "
+                    f"and dependent model process {model_script_id} for "
+                    f"{target_fasta}")
+            else:
+                model_script_id = launch_slurm_process(
+                    f"sbatch {model_script_path}")
+                logging.debug(f"Launched model process {model_script_id} for "
+                              f"{target_fasta}")
 
         logging.debug(f"Finished setting up {target_fasta}")
 
-    logging.debug(f"Finished running alphafold")
+    logging.debug("Finished running alphafold")
     return None
 
 
