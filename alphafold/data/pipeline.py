@@ -22,6 +22,7 @@ from alphafold.data import templates
 from alphafold.data.tools import hhblits
 from alphafold.data.tools import hhsearch
 from alphafold.data.tools import jackhmmer
+from alphafold.data.tools import mmseqs as mmseqs2
 import numpy as np
 from dataclasses import dataclass
 from string import ascii_uppercase
@@ -306,6 +307,11 @@ class DataPipeline:
                  small_bfd_database_path: Optional[str],
                  pdb70_database_path: str,
                  template_featurizer: templates.TemplateHitFeaturizer,
+                 mmseqs_binary_path: str,
+                 mmseqs_uniref50_database_path: str,
+                 mmseqs_mgnify_database_path: str,
+                 mmseqs_small_bfd_database_path: str,
+                 mmseqs: bool,
                  use_small_bfd: bool,
                  mgnify_max_hits: int = 501,
                  uniref_max_hits: int = 25000,
@@ -331,6 +337,11 @@ class DataPipeline:
             get_tblout=True)
         self.hhsearch_pdb70_runner = hhsearch.HHSearch(
             binary_path=hhsearch_binary_path, databases=[pdb70_database_path])
+        self.mmseqs_runner = mmseqs2.MMSeqs(
+            binary_path=mmseqs_binary_path,
+            uniref50_database_path=mmseqs_uniref50_database_path,
+            mgnify_database_path=mmseqs_mgnify_database_path,
+            small_bfd_database_path=mmseqs_small_bfd_database_path)
         self.template_featurizer = template_featurizer
         self.mgnify_max_hits = mgnify_max_hits
         self.uniref_max_hits = uniref_max_hits
@@ -591,6 +602,8 @@ class DataPipeline:
                             if x[2] != input_description
                         ]
                     unsorted_results.extend(zipped_results)
+                    if not len(unsorted_results):
+                        continue  # if no hits found
                     db_msas, db_deletion_matrices, db_names = zip(
                         *unsorted_results)
                     msas.append(db_msas)
@@ -647,29 +660,37 @@ class DataPipeline:
             if mode == "seq": return "".join(_blank)
             if mode == "mtx": return sum(_blank, [])
 
-        msas = []
-        deletion_matrices = []
-        for n, seq in enumerate(seqs):
-            prefix = str(n)
-            pickled_msa_path = os.path.join(msa_output_dir, f"{prefix}.pickle")
-            msas_dict = pickle.load(open(pickled_msa_path, "rb"))
-            msas_, mtxs_, names_ = (
-                msas_dict[k] for k in ['msas', 'deletion_matrices', 'names'])
-            # pad sequences
-            for msa_, mtx_ in zip(msas_, mtxs_):
-                msa, mtx = [sequence], [[0] * len(sequence)]
-                for s, m in zip(msa_, mtx_):
-                    msa.append(_pad(n, s, "seq"))
-                    mtx.append(_pad(n, m, "mtx"))
-
-                msas.append(msa)
-                deletion_matrices.append(mtx)
         combined_msa_pickle = os.path.join(msa_output_dir,
                                            'combined_msa.pickle')
-        pickle.dump({
-            "msas": msas,
-            "deletion_matrices": deletion_matrices
-        }, open(combined_msa_pickle, "wb"))
+        if not os.path.exists(combined_msa_pickle):
+            msas = []
+            deletion_matrices = []
+            for n, seq in enumerate(seqs):
+                prefix = str(n)
+                pickled_msa_path = os.path.join(msa_output_dir,
+                                                f"{prefix}.pickle")
+                msas_dict = pickle.load(open(pickled_msa_path, "rb"))
+                msas_, mtxs_, names_ = (
+                    msas_dict[k]
+                    for k in ['msas', 'deletion_matrices', 'names'])
+                # pad sequences
+                for msa_, mtx_ in zip(msas_, mtxs_):
+                    msa, mtx = [sequence], [[0] * len(sequence)]
+                    for s, m in zip(msa_, mtx_):
+                        msa.append(_pad(n, s, "seq"))
+                        mtx.append(_pad(n, m, "mtx"))
+
+                    msas.append(msa)
+                    deletion_matrices.append(mtx)
+            pickle.dump({
+                "msas": msas,
+                "deletion_matrices": deletion_matrices
+            }, open(combined_msa_pickle, "wb"))
+        else:
+            with open(combined_msa_pickle, 'rb') as F:
+                combined_msa = pickle.load(F)
+            msas = combined_msa['msas']
+            deletion_matrices = combined_msa['deletion_matrices']
 
         full_msa = []
         for msa in msas:

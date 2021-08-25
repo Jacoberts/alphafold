@@ -108,6 +108,16 @@ flags.DEFINE_string(
 flags.DEFINE_integer('max_recycles', None, 'Max recycles')
 flags.DEFINE_float('tol', None, 'Max recycle tolerance')
 flags.DEFINE_boolean('turbo', False, 'Whether to use turbo alphafold models')
+flags.DEFINE_string('mmseqs_binary_path', '/usr/bin/mmseqs',
+                    'Path to the mmseqs executable.')
+flags.DEFINE_string('mmseqs_uniref50_database_path', None,
+                    'Path to the Uniref50 '
+                    'database for use by mmseqs.')
+flags.DEFINE_string('mmseqs_mgnify_database_path', None, 'Path to the MGnify '
+                    'database for use by mmseqs.')
+flags.DEFINE_string('mmseqs_small_bfd_database_path', None, 'Path to the BFD '
+                    'database for use by mmseqs.')
+flags.DEFINE_boolean('mmseqs', False, 'Whether to use mmseqs MSA pipeline')
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -182,6 +192,7 @@ def predict_structure(fasta_path: str,
     unrelaxed_pdbs = {}
     relaxed_pdbs = {}
     plddts = {}
+    ptms = {}
 
     if turbo:
         use_ptm = 'ptm' in list(model_runners.keys())[0]
@@ -243,6 +254,8 @@ def predict_structure(fasta_path: str,
         # Get mean pLDDT confidence metric.
         plddt = prediction_result['plddt']
         plddts[model_name] = np.mean(plddt)
+        if 'ptm' in prediction_result:
+            ptms[model_name] = prediction_result['ptm']
 
         # Save the model outputs.
         result_output_path = os.path.join(output_dir,
@@ -309,9 +322,13 @@ def predict_structure(fasta_path: str,
             f.write(
                 json.dumps(
                     {
-                        'plddts': {k: np.array(v).tolist()
-                                   for k, v in plddts.items()},
-                        'order': ranked_order
+                        'plddts':
+                        {k: np.array(v).tolist()
+                         for k, v in plddts.items()},
+                        'order': ranked_order,
+                        'ptms':
+                        {k: np.array(v).tolist()
+                         for k, v in ptms.items()},
                     },
                     indent=4))
 
@@ -369,6 +386,11 @@ def main(argv):
         small_bfd_database_path=FLAGS.small_bfd_database_path,
         pdb70_database_path=FLAGS.pdb70_database_path,
         template_featurizer=template_featurizer,
+        mmseqs_binary_path=FLAGS.mmseqs_binary_path,
+        mmseqs_uniref50_database_path=FLAGS.mmseqs_uniref50_database_path,
+        mmseqs_mgnify_database_path=FLAGS.mmseqs_mgnify_database_path,
+        mmseqs_small_bfd_database_path=FLAGS.mmseqs_small_bfd_database_path,
+        mmseqs=FLAGS.mmseqs,
         use_small_bfd=use_small_bfd)
 
     model_runners = {}
@@ -438,6 +460,11 @@ if __name__ == '__main__':
         'homooligomer',
         'max_recycles',
         'tol',
+        'mmseqs_binary_path',
+        'mmseqs_uniref50_database_path',
+        'mmseqs_mgnify_database_path',
+        'mmseqs_small_bfd_database_path',
+        'mmseqs',
     ])
 
     app.run(main)

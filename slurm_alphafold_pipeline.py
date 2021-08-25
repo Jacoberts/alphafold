@@ -85,6 +85,12 @@ def cli() -> argparse.ArgumentParser:
               'a homodimer (2 copies) and second DEF a monomer (1 copy).'),
     )
     parser.add_argument(
+        "--mmseqs",
+        action='store_true',
+        help=('Whether to use mmseqs to create MSAs. MMSeqs is 10x '
+              'faster than alphafold method'),
+    )
+    parser.add_argument(
         "--max_recycles",
         type=int,
         default=3,
@@ -200,8 +206,8 @@ ALPHAFOLD_FEATURE_TEMPLATE: str = """#!/bin/bash
 #SBATCH --partition={PARTITION}
 #SBATCH --account=pc_rosetta
 #SBATCH --qos=lr_normal
-#SBATCH --output={ALPHAFOLD_LOGS}/%j_%x_{NAME}.out
-#SBATCH --error={ALPHAFOLD_LOGS}/%j_%x_{NAME}.err
+#SBATCH --output={ALPHAFOLD_LOGS}/%j_%x_{NAME}_{PURPOSE}.out
+#SBATCH --error={ALPHAFOLD_LOGS}/%j_%x_{NAME}_{PURPOSE}.err
 #SBATCH --time=48:00:00
 #SBATCH -N 1
 #SBATCH --mem {PARTITION_MEM}
@@ -238,6 +244,10 @@ hhblits_binary_path=$(which hhblits)
 hhsearch_binary_path=$(which hhsearch)
 jackhmmer_binary_path=$(which jackhmmer)
 kalign_binary_path=$(which kalign)
+mmseqs_binary_path=$(which mmseqs)
+mmseqs_uniref50_database_path="$data_dir/uniref50/uniref50"
+mmseqs_mgnify_database_path="$data_dir/mgnify/mgnify"
+mmseqs_small_bfd_database_path="$data_dir/small_bfd/small_bfd"
 
 if [[ $preset == "reduced_dbs" ]]; then
     echo 'Creating reduced_dbs features.pkl'
@@ -252,6 +262,10 @@ if [[ $preset == "reduced_dbs" ]]; then
         --pdb70_database_path=$pdb70_database_path \
         --uniref90_database_path=$uniref90_database_path \
         --small_bfd_database_path=$small_bfd_database_path \
+        --mmseqs_binary_path=$kalign_binary_path \
+        --mmseqs_uniref50_database_path=$mmseqs_uniref50_database_path \
+        --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
+        --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
         --data_dir=$data_dir \
         --output_dir=$output_dir \
         --fasta_paths=$fasta_path \
@@ -264,6 +278,7 @@ if [[ $preset == "reduced_dbs" ]]; then
         --max_recycles=$max_recycles \
         --tol=$tol \
         {COMPLEX_NAME} \
+        {MMSEQS} \
         {TURBO})
 else
     echo 'Creating full_dbs features.pkl'
@@ -273,6 +288,10 @@ else
         --jackhmmer_binary_path=$jackhmmer_binary_path \
         --kalign_binary_path=$kalign_binary_path \
         --bfd_database_path=$bfd_database_path \
+        --mmseqs_binary_path=$kalign_binary_path \
+        --mmseqs_uniref50_database_path=$mmseqs_uniref50_database_path \
+        --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
+        --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
         --mgnify_database_path=$mgnify_database_path \
         --template_mmcif_dir=$template_mmcif_dir \
         --obsolete_pdbs_path=$obsolete_pdbs_path \
@@ -291,6 +310,7 @@ else
         --max_recycles=$max_recycles \
         --tol=$tol \
         {COMPLEX_NAME} \
+        {MMSEQS} \
         {TURBO})
 fi
 """
@@ -344,6 +364,10 @@ hhblits_binary_path=$(which hhblits)
 hhsearch_binary_path=$(which hhsearch)
 jackhmmer_binary_path=$(which jackhmmer)
 kalign_binary_path=$(which kalign)
+mmseqs_binary_path=$(which mmseqs)
+mmseqs_uniref50_database_path="$data_dir/uniref50/uniref50"
+mmseqs_mgnify_database_path="$data_dir/mgnify/mgnify"
+mmseqs_small_bfd_database_path="$data_dir/small_bfd/small_bfd"
 
 export CUDA_VISIBLE_DEVICES={GPU_DEVICES}
 export TF_FORCE_UNIFIED_MEMORY='1'
@@ -362,6 +386,10 @@ if [[ $preset == "reduced_dbs" ]]; then
         --pdb70_database_path=$pdb70_database_path \
         --uniref90_database_path=$uniref90_database_path \
         --small_bfd_database_path=$small_bfd_database_path \
+        --mmseqs_binary_path=$kalign_binary_path \
+        --mmseqs_uniref50_database_path=$mmseqs_uniref50_database_path \
+        --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
+        --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
         --data_dir=$data_dir \
         --output_dir=$output_dir \
         --fasta_paths=$fasta_path \
@@ -374,6 +402,7 @@ if [[ $preset == "reduced_dbs" ]]; then
         --relax=$relax \
         --max_recycles=$max_recycles \
         --tol=$tol \
+        {MMSEQS} \
         {TURBO})
 else
     echo 'Running alphafold'
@@ -383,6 +412,10 @@ else
         --jackhmmer_binary_path=$jackhmmer_binary_path \
         --kalign_binary_path=$kalign_binary_path \
         --bfd_database_path=$bfd_database_path \
+        --mmseqs_binary_path=$kalign_binary_path \
+        --mmseqs_uniref50_database_path=$mmseqs_uniref50_database_path \
+        --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
+        --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
         --mgnify_database_path=$mgnify_database_path \
         --template_mmcif_dir=$template_mmcif_dir \
         --obsolete_pdbs_path=$obsolete_pdbs_path \
@@ -401,6 +434,7 @@ else
         --relax=$relax \
         --max_recycles=$max_recycles \
         --tol=$tol \
+        {MMSEQS} \
         {TURBO})
 fi
 """
@@ -431,9 +465,10 @@ def create_combine_msa_script(target_fasta: str, args: dict,
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
             "COMPLEX_NAME": f'--complex_name={complex_name}',
-            "PARTITION": 'lr3',
+            "PARTITION": 'lr6',
             "PARTITION_MEM": '48G',
             "TURBO": f'--turbo={args["turbo"]}',
+            "MMSEQS": '',
         })
     msa_script_path: str = os.path.join(
         output_dir, f'submit_combine_msa_{complex_name}.slurm')
@@ -466,6 +501,7 @@ def create_msa_script(target_fasta: str, args: dict, complex_name: str) -> str:
             "PARTITION": 'lr6',
             "PARTITION_MEM": '180G',
             "TURBO": '',
+            "MMSEQS": f'--mmseqs={args["mmseqs"]}',
         })
     msa_script_path: str = os.path.join(
         output_dir, f'submit_create_msa_{complex_name}_{name}.slurm')
@@ -498,6 +534,7 @@ def create_feature_script(target_fasta: str, args: dict) -> str:
             "PARTITION": 'lr6',
             "PARTITION_MEM": '180G',
             "TURBO": '',
+            "MMSEQS": '',
         })
     feature_script_path: str = os.path.join(output_dir,
                                             f'submit_features_{name}.slurm')
@@ -536,6 +573,7 @@ def create_model_script(target_fasta: str, args: dict) -> str:
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
             "TURBO": f'--turbo={args["turbo"]}',
+            "MMSEQS": '',
         })
     model_script_path: str = os.path.join(output_dir,
                                           f'submit_models_{name}.slurm')
