@@ -28,18 +28,14 @@ from docker import types
 #### USER CONFIGURATION ####
 
 # Set to target of scripts/download_all_databases.sh
-#DOWNLOAD_DIR = 'SET ME'
-DOWNLOAD_DIR = '/data/alberto/alphafold_databases'
+DOWNLOAD_DIR = '/mnt/disks/afdbs'
 
 # Name of the AlphaFold Docker image.
 docker_image_name = 'alphafold'
 
 # Path to a directory that will store the results.
-#output_dir = '/tmp/alphafold'
-output_dir = '/data/alberto/alphafold_results'
-
-# Path to a directory where temporary directories will be held
-tmp_dir = '/data/alberto/alphafold_tmp'
+output_dir = '/home/jacobroberts/out'
+tmp_dir = '/home/jacobroberts/tmp'
 
 # Names of models to use.
 model_names = [
@@ -111,6 +107,9 @@ flags.DEFINE_boolean('benchmark', False, 'Run multiple JAX model evaluations '
                      'to obtain a timing that excludes the compilation time, '
                      'which should be more indicative of the time required for '
                      'inferencing many proteins.')
+flags.DEFINE_integer('homooligomer', 1, 'The number of oligomers to model '
+                     'protein with. By default, will model as monomer '
+                     '(default: 1)')
 
 FLAGS = flags.FLAGS
 
@@ -173,6 +172,7 @@ def main(argv):
       f'--max_template_date={FLAGS.max_template_date}',
       f'--preset={FLAGS.preset}',
       f'--benchmark={FLAGS.benchmark}',
+      f'--homooligomer={FLAGS.homooligomer}',
       '--logtostderr',
   ])
 

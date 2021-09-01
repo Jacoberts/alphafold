@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Library to run Jackhmmer from Python."""
+"""Library to run MMseqs2 from Python."""
 
 from concurrent import futures
 import glob
@@ -26,13 +26,12 @@ from absl import logging
 from alphafold.data.tools import utils
 # Internal import (7716).
 
-#TMPDIR="/tmp"
+TMPDIR="/tmp"
 #TMPDIR="/data/alberto/alphafold_tmp"
-TMPDIR="/tmp/jackhmmer"
 
 
-class Jackhmmer:
-  """Python wrapper of the Jackhmmer binary."""
+class MMseqs2:
+  """Python wrapper of the MMseqs2 binary."""
 
   def __init__(self,
                *,
@@ -50,7 +49,7 @@ class Jackhmmer:
                dom_e: Optional[float] = None,
                num_streamed_chunks: Optional[int] = None,
                streaming_callback: Optional[Callable[[int], None]] = None):
-    """Initializes the Python Jackhmmer wrapper.
+    """Initializes the Python MMseqs2 wrapper.
 
     Args:
       binary_path: The path to the jackhmmer executable.
