@@ -117,7 +117,8 @@ def make_msa_features(
   deletion_matrix = []
   seen_sequences = set()
   # 1.99 GB Max size, size of row in msa array = Ln * 4 bytes (int32)
-  max_msa_sequences = (1.99*1024*1024*1024) // (Ln * homooligomer * 4) 
+  # TODO: CHANGE THIS!!! The extra / 2 was for testing.
+  max_msa_sequences = (1.99*1024*1024*1024 / 2) // (Ln * homooligomer * 4) 
   num_sequences = 0
   for msa_index, msa in enumerate(all_msas):
     if not msa:
@@ -162,7 +163,7 @@ class DataPipeline:
                use_small_bfd: bool,
                mgnify_max_hits: int = 501,
                uniref_max_hits: int = 25000,
-               bfd_max_hits: int = 25000):
+               bfd_max_hits: int = 20000):
     """Constructs a feature dict for a given FASTA file."""
     self._use_small_bfd = use_small_bfd
     self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(

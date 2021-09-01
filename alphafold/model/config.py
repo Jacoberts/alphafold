@@ -45,6 +45,7 @@ CONFIG_DIFFS = {
     },
     'model_2': {
         # Jumper et al. (2021) Suppl. Table 5, Model 1.1.2
+        'data.common.max_extra_msa': 5120, # TODO(JBR): Delete this!!
         'data.common.reduce_msa_clusters_by_max_templates': True,
         'data.common.use_templates': True,
         'model.embeddings_and_evoformer.template.embed_torsion_angles': True,

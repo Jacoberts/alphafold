@@ -58,15 +58,16 @@ RUN conda update -qy conda \
       pip \
       python=3.7
 
-COPY . /app/alphafold
-RUN wget -q -P /app/alphafold/alphafold/common/ \
-  https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt
+COPY requirements.txt /app/alphafold/requirements.txt
 
 # Install pip packages.
 RUN pip3 install --upgrade pip \
     && pip3 install -r /app/alphafold/requirements.txt \
     && pip3 install --upgrade jax jaxlib==0.1.69+cuda${CUDA/./} -f \
       https://storage.googleapis.com/jax-releases/jax_releases.html
+COPY . /app/alphafold
+RUN wget -q -P /app/alphafold/alphafold/common/ \
+  https://git.scicore.unibas.ch/schwede/openstructure/-/raw/7102c63615b64735c4941278d92b554ec94415f8/modules/mol/alg/src/stereo_chemical_props.txt
 
 # Apply OpenMM patch.
 WORKDIR /opt/conda/lib/python3.7/site-packages
