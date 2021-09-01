@@ -34,9 +34,17 @@ from alphafold.model import model
 from alphafold.relax import relax
 import numpy as np
 
-import tensorflow as tf
-
-tf.config.set_visible_devices([], 'GPU')
+#import tensorflow.compat.v1 as tf
+#
+#logging.info("Num GPUs Available: ",
+#             len(tf.config.list_physical_devices('GPU')))
+#logging.info("Num CPUs Available: ",
+#             len(tf.config.list_physical_devices('CPU')))
+#tf.config.set_visible_devices([], 'GPU')
+#
+#config2 = tf.ConfigProto()
+#config2.gpu_options.allow_growth = True
+#session = tf.Session(config=config2)
 
 import jax
 # Internal import (7716).
@@ -312,12 +320,26 @@ def predict_structure(fasta_path: str,
 
     ranking_output_path = os.path.join(output_dir, 'ranking_debug.json')
     with open(ranking_output_path, 'w') as f:
-        if not turbo:
-            f.write(
-                json.dumps({
-                    'plddts': plddts,
-                    'order': ranked_order
-                }, indent=4))
+        use_ptm = 'ptm' in list(model_runners.keys())[0]
+        if not use_ptm:
+            try:
+                f.write(
+                    json.dumps({
+                        'plddts': plddts,
+                        'order': ranked_order
+                    },
+                               indent=4))
+            except:
+                f.write(
+                    json.dumps(
+                        {
+                            'plddts': {
+                                k: np.array(v).tolist()
+                                for k, v in plddts.items()
+                            },
+                            'order': ranked_order,
+                        },
+                        indent=4))
         else:
             f.write(
                 json.dumps(
