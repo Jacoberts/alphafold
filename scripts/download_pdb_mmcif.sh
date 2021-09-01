@@ -34,6 +34,7 @@ if ! command -v rsync &> /dev/null ; then
     exit 1
 fi
 
+MYDIR="$(dirname "$(which "$0")")"
 DOWNLOAD_DIR="$1"
 ROOT_DIR="${DOWNLOAD_DIR}/pdb_mmcif"
 RAW_DIR="${ROOT_DIR}/raw"
@@ -41,10 +42,17 @@ MMCIF_DIR="${ROOT_DIR}/mmcif_files"
 
 echo "Running rsync to fetch all mmCIF files (note that the rsync progress estimate might be inaccurate)..."
 mkdir --parents "${RAW_DIR}"
-rsync --recursive --links --perms --times --compress --info=progress2 --delete \
-  ftp.pdbj.org::ftp_data/structures/divided/mmCIF/ \
-  "${RAW_DIR}"
-  #rsync.rcsb.org::ftp_data/structures/divided/mmCIF/ \
+cat "${MYDIR}/mmcif_subfolders.txt" | \
+	xargs -n1 -P10 -I% rsync \
+	--recursive --links --perms --times --compress --info=progress2 --delete \
+	ftp.pdbj.org::ftp_data/structures/divided/mmCIF/%/ \
+	"${RAW_DIR}/%/"
+
+
+# rsync --recursive --links --perms --times --compress --info=progress2 --delete \
+#   ftp.pdbj.org::ftp_data/structures/divided/mmCIF/ \
+#   "${RAW_DIR}"
+#   #rsync.rcsb.org::ftp_data/structures/divided/mmCIF/ \
 
 echo "Unzipping all mmCIF files..."
 find "${RAW_DIR}/" -type f -iname "*.gz" -exec gunzip {} +
