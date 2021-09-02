@@ -88,9 +88,6 @@ flags.DEFINE_integer('random_seed', None, 'The random seed for the data '
                      'that even if this is set, Alphafold may still not be '
                      'deterministic, because processes like GPU inference are '
                      'nondeterministic.')
-flags.DEFINE_integer('homooligomer', None, 'The number of oligomers to model '
-                     'protein with. By default, will model as monomer '
-                     '(default: 1)')
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -115,8 +112,7 @@ def predict_structure(
     model_runners: Dict[str, model.RunModel],
     amber_relaxer: relax.AmberRelaxation,
     benchmark: bool,
-    random_seed: int,
-    homooligomer: int = 1):
+    random_seed: int):
   """Predicts structure using AlphaFold for the given sequence."""
   timings = {}
   output_dir = os.path.join(output_dir_base, fasta_name)
@@ -126,24 +122,18 @@ def predict_structure(
   if not os.path.exists(msa_output_dir):
     os.makedirs(msa_output_dir)
 
+  # Get features.
+  t_0 = time.time()
+  feature_dict = data_pipeline.process(
+      input_fasta_path=fasta_path,
+      msa_output_dir=msa_output_dir)
+  timings['features'] = time.time() - t_0
+
+  # Write out features as a pickled dictionary.
   features_output_path = os.path.join(output_dir, 'features.pkl')
-  if not os.path.exists(features_output_path):
-    # Get features.
-    t_0 = time.time()
-    feature_dict = data_pipeline.process(
-        input_fasta_path=fasta_path,
-        msa_output_dir=msa_output_dir,
-        homooligomer=homooligomer)
-    timings['features'] = time.time() - t_0
+  with open(features_output_path, 'wb') as f:
+    pickle.dump(feature_dict, f, protocol=4)
 
-    # Write out features as a pickled dictionary.
-    with open(features_output_path, 'wb') as f:
-      pickle.dump(feature_dict, f, protocol=4)
-  else:
-    with open(features_output_path, 'rb') as f:
-      feature_dict = pickle.load(f)
-
-  unrelaxed_pdbs = {}
   relaxed_pdbs = {}
   plddts = {}
 
@@ -190,20 +180,17 @@ def predict_structure(
     with open(unrelaxed_pdb_path, 'w') as f:
       f.write(protein.to_pdb(unrelaxed_protein))
 
-    unrelaxed_pdbs[model_name] = protein.to_pdb(unrelaxed_protein)
+    # Relax the prediction.
+    t_0 = time.time()
+    relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
+    timings[f'relax_{model_name}'] = time.time() - t_0
 
-    if homooligomer == 1:
-      # Relax the prediction.
-      t_0 = time.time()
-      relaxed_pdb_str, _, _ = amber_relaxer.process(prot=unrelaxed_protein)
-      timings[f'relax_{model_name}'] = time.time() - t_0
+    relaxed_pdbs[model_name] = relaxed_pdb_str
 
-      relaxed_pdbs[model_name] = relaxed_pdb_str
-
-      # Save the relaxed PDB.
-      relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
-      with open(relaxed_output_path, 'w') as f:
-        f.write(relaxed_pdb_str)
+    # Save the relaxed PDB.
+    relaxed_output_path = os.path.join(output_dir, f'relaxed_{model_name}.pdb')
+    with open(relaxed_output_path, 'w') as f:
+      f.write(relaxed_pdb_str)
 
   # Rank by pLDDT and write out relaxed PDBs in rank order.
   ranked_order = []
@@ -211,12 +198,8 @@ def predict_structure(
       sorted(plddts.items(), key=lambda x: x[1], reverse=True)):
     ranked_order.append(model_name)
     ranked_output_path = os.path.join(output_dir, f'ranked_{idx}.pdb')
-    if homooligomer > 1:
-      with open(ranked_output_path, 'w') as f:
-        f.write(unrelaxed_pdbs[model_name])
-    else:
-      with open(ranked_output_path, 'w') as f:
-        f.write(relaxed_pdbs[model_name])
+    with open(ranked_output_path, 'w') as f:
+      f.write(relaxed_pdbs[model_name])
 
   ranking_output_path = os.path.join(output_dir, 'ranking_debug.json')
   with open(ranking_output_path, 'w') as f:
@@ -296,10 +279,6 @@ def main(argv):
     random_seed = random.randrange(sys.maxsize)
   logging.info('Using random seed %d for the data pipeline', random_seed)
 
-  homooligomer = FLAGS.homooligomer
-  if homooligomer is None:
-    homooligomer = 1
-
   # Predict structure for each of the sequences.
   for fasta_path, fasta_name in zip(FLAGS.fasta_paths, fasta_names):
     predict_structure(
@@ -310,8 +289,7 @@ def main(argv):
         model_runners=model_runners,
         amber_relaxer=amber_relaxer,
         benchmark=FLAGS.benchmark,
-        random_seed=random_seed,
-        homooligomer=homooligomer)
+        random_seed=random_seed)
 
 
 if __name__ == '__main__':
@@ -327,7 +305,6 @@ if __name__ == '__main__':
       'template_mmcif_dir',
       'max_template_date',
       'obsolete_pdbs_path',
-      'homooligomer',
   ])
 
   app.run(main)
