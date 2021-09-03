@@ -20,7 +20,8 @@ pip install "jax[tpu]>=0.2.16" -f https://storage.googleapis.com/jax-releases/li
 
 # Patch one of the pip dependencies...
 alphafold_path="$HOME/alphafold"
-cd ~/anaconda3/envs/alphafold/lib/python3.8/site-packages/ && patch -p0 < $alphafold_path/docker/openmm.patch
+cd $HOME/anaconda/envs/alphafold/lib/python3.8/site-packages/
+patch -p0 < $alphafold_path/docker/openmm.patch
 cd $HOME/alphafold
 
 # Setup the db disk.

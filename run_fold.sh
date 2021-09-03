@@ -13,7 +13,7 @@
 # 	-h 1 
 # 
 time bash run_alphafold.sh \
-	-f SgcE.fasta \
+	-f EtnB.fasta \
 	-t 2022-12-31 \
 	-d /mnt/disks/afdbs \
 	-o /home/jacobroberts/out \
@@ -22,4 +22,4 @@ time bash run_alphafold.sh \
 	-g False \
 	-r true \
 	-h 1 \
-	2>&1 |tee ~/out/SgcE.fasta.stdout
+	2>&1 |tee ~/out/EtnB.fasta.stdout
