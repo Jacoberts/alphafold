@@ -160,6 +160,7 @@ if [[ "$preset" == "reduced_dbs" ]]; then
     --mmseqs_uniref50_database_path=$mmseqs_uniref50_database_path \
     --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
     --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
+    --clear_gpu=$use_gpu \
     --logtostderr)
 else
     $(python $alphafold_script \
@@ -187,5 +188,6 @@ else
     --mmseqs_uniref50_database_path=$mmseqs_uniref50_database_path \
     --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
     --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
+    --clear_gpu=$use_gpu \
     --logtostderr)
 fi

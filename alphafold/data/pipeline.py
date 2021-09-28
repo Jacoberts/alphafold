@@ -337,11 +337,6 @@ class DataPipeline:
             get_tblout=True)
         self.hhsearch_pdb70_runner = hhsearch.HHSearch(
             binary_path=hhsearch_binary_path, databases=[pdb70_database_path])
-        self.mmseqs_runner = mmseqs2.MMSeqs(
-            binary_path=mmseqs_binary_path,
-            uniref50_database_path=mmseqs_uniref50_database_path,
-            mgnify_database_path=mmseqs_mgnify_database_path,
-            small_bfd_database_path=mmseqs_small_bfd_database_path)
         self.template_featurizer = template_featurizer
         self.mgnify_max_hits = mgnify_max_hits
         self.uniref_max_hits = uniref_max_hits
