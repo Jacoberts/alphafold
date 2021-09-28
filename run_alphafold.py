@@ -126,6 +126,7 @@ flags.DEFINE_string('mmseqs_mgnify_database_path', None, 'Path to the MGnify '
 flags.DEFINE_string('mmseqs_small_bfd_database_path', None, 'Path to the BFD '
                     'database for use by mmseqs.')
 flags.DEFINE_boolean('mmseqs', False, 'Whether to use mmseqs MSA pipeline')
+flags.DEFINE_boolean('clear_gpu', True, 'Whether to clear GPU memory every time.')
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -216,7 +217,8 @@ def predict_structure(fasta_path: str,
         compiled = (N, L, use_ptm, max_recycles, tol, num_ensemble, max_msa,
                     is_training)
         logging.info(f'Turbo model: {str(compiled)}')
-        clear_mem("gpu")
+        if FLAGS.clear_gpu:
+            clear_mem("gpu")
         cfg = config.model_config(name)
         cfg.data.common.max_extra_msa = min(N, max_extra_msa)
         cfg.data.eval.max_msa_clusters = min(N, max_msa_clusters)
@@ -365,7 +367,8 @@ def main(argv):
     if len(argv) > 1:
         raise app.UsageError('Too many command-line arguments.')
 
-    clear_mem('gpu')
+    if FLAGS.clear_gpu: 
+        clear_mem('gpu')
     clear_mem('cpu')
 
     use_small_bfd = FLAGS.preset == 'reduced_dbs'

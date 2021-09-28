@@ -123,6 +123,9 @@ obsolete_pdbs_path="$data_dir/pdb_mmcif/obsolete.dat"
 pdb70_database_path="$data_dir/pdb70/pdb70"
 uniclust30_database_path="$data_dir/uniclust30/uniclust30_2018_08/uniclust30_2018_08"
 uniref90_database_path="$data_dir/uniref90/uniref90.fasta"
+mmseqs_uniref50_database_path="$data_dir/uniref50/uniref50"
+mmseqs_mgnify_database_path="$data_dir/mgnify/mgnify"
+mmseqs_small_bfd_database_path="$data_dir/small_bfd/small_bfd"
 
 # Binary path (change me if required)
 hhblits_binary_path=$(which hhblits)
@@ -154,9 +157,9 @@ if [[ "$preset" == "reduced_dbs" ]]; then
     --homooligomer=1 \
     --max_recycles=3 \
     --tol=0.0 \
-    --mmseqs_uniref50_database_path='' \
-    --mmseqs_mgnify_database_path='' \
-    --mmseqs_small_bfd_database_path='' \
+    --mmseqs_uniref50_database_path=$mmseqs_uniref50_database_path \
+    --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
+    --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
     --logtostderr)
 else
     $(python $alphafold_script \
@@ -181,8 +184,8 @@ else
     --homooligomer=1 \
     --max_recycles=3 \
     --tol=0.0 \
-    --mmseqs_uniref50_database_path='' \
-    --mmseqs_mgnify_database_path='' \
-    --mmseqs_small_bfd_database_path='' \
+    --mmseqs_uniref50_database_path=$mmseqs_uniref50_database_path \
+    --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
+    --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
     --logtostderr)
 fi

@@ -72,8 +72,8 @@ class MMSeqs:
         self.small_bfd_database_path = small_bfd_database_path
 
         if not os.path.exists(self.uniref50_database_path):
-            logging.error('Could not find MMSeqs database %s', database_path)
-            raise ValueError(f'Could not find MMSeqs database {database_path}')
+            logging.error('Could not find MMSeqs database %s', self.uniref50_database_path)
+            raise ValueError(f'Could not find MMSeqs database {self.uniref50_database_path}')
 
         self.n_cpu = n_cpu
         self.n_iter = n_iter
