@@ -200,7 +200,7 @@ def predict_structure(fasta_path: str,
     else:
         with open(features_output_path, 'rb') as f:
             feature_dict = pickle.load(f)
-    logging.info(str(feature_dict))
+    #logging.info(str(feature_dict))
 
     unrelaxed_pdbs = {}
     relaxed_pdbs = {}
