@@ -111,6 +111,8 @@ flags.DEFINE_string('mmseqs_mgnify_database_path', None, 'Path to the MGnify '
 flags.DEFINE_string('mmseqs_small_bfd_database_path', None, 'Path to the BFD '
                     'database for use by mmseqs.')
 flags.DEFINE_boolean('mmseqs', False, 'Whether to use mmseqs MSA pipeline')
+flags.DEFINE_float(
+    'msa_size_gb', 1.99, 'Size of the MSA.')
 FLAGS = flags.FLAGS
 
 MAX_TEMPLATE_HITS = 20
@@ -135,6 +137,7 @@ def predict_structure(fasta_path: str,
                       amber_relaxer: relax.AmberRelaxation,
                       benchmark: bool,
                       random_seed: int,
+                      msa_size_gb: float,
                       homooligomer: str = '1',
                       relax: bool = False):
     """Predicts structure using AlphaFold for the given sequence."""
@@ -152,6 +155,7 @@ def predict_structure(fasta_path: str,
         t_0 = time.time()
         feature_dict = data_pipeline.process(input_fasta_path=fasta_path,
                                              msa_output_dir=msa_output_dir,
+                                             msa_size_gb=msa_size_gb,
                                              homooligomer=homooligomer)
         timings['features'] = time.time() - t_0
 
@@ -257,6 +261,7 @@ def main(argv):
                           amber_relaxer=amber_relaxer,
                           benchmark=FLAGS.benchmark,
                           random_seed=random_seed,
+                          msa_size_gb=FLAGS.msa_size_gb,
                           homooligomer=homooligomer,
                           relax=FLAGS.relax)
 
