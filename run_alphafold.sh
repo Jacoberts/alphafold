@@ -18,11 +18,12 @@ usage() {
         echo "-g <use_gpu>      Enable NVIDIA runtime to run with GPUs (default: True)"
         echo "-a <gpu_devices>  Comma separated list of devices to pass to 'CUDA_VISIBLE_DEVICES' (default: 0)"
         echo "-p <preset>       Choose preset model configuration - no ensembling and smaller genetic database config (reduced_dbs), no ensembling and full genetic database config  (full_dbs) or full genetic database config and 8 model ensemblings (casp14)"
+        echo "-z <msa_size_gb>  Size of the MSA in GB."
         echo ""
         exit 1
 }
 
-while getopts ":d:o:m:f:t:g:n:a:p:b" i; do
+while getopts ":d:o:m:f:t:g:n:a:p:b:z" i; do
         case "${i}" in
         d)
                 data_dir=$OPTARG
@@ -51,6 +52,9 @@ while getopts ":d:o:m:f:t:g:n:a:p:b" i; do
         p)
                 preset=$OPTARG
         ;;
+        z)
+                msa_size_gb=$OPTARG
+        ;;
         b)
                 benchmark=true
         ;;
@@ -58,7 +62,7 @@ while getopts ":d:o:m:f:t:g:n:a:p:b" i; do
 done
 
 # Parse input and set defaults
-if [[ "$data_dir" == "" || "$output_dir" == "" || "$model_names" == "" || "$fasta_path" == "" || "$max_template_date" == "" ]] ; then
+if [[ "$data_dir" == "" || "$output_dir" == "" || "$model_names" == "" || "$fasta_path" == "" || "$max_template_date" == "" || "$msa_size_gb" == "" ]] ; then
     usage
 fi
 
@@ -82,6 +86,7 @@ if [[ "$preset" != "full_dbs" && "$preset" != "casp14" && "$preset" != "reduced_
     echo "Unknown preset! Using default ('full_dbs')"
     preset="full_dbs"
 fi
+
 
 # This bash script looks for the run_alphafold.py script in its current working directory, if it does not exist then exits
 current_working_dir=$(pwd)
@@ -161,6 +166,7 @@ if [[ "$preset" == "reduced_dbs" ]]; then
     --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
     --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
     --clear_gpu=$use_gpu \
+    --msa_size_gb=$msa_size_gb \
     --logtostderr)
 else
     $(python $alphafold_script \
@@ -189,5 +195,6 @@ else
     --mmseqs_mgnify_database_path=$mmseqs_mgnify_database_path \
     --mmseqs_small_bfd_database_path=$mmseqs_small_bfd_database_path \
     --clear_gpu=$use_gpu \
+    --msa_size_gb=$msa_size_gb \
     --logtostderr)
 fi

@@ -109,6 +109,8 @@ flags.DEFINE_integer(
     'that even if this is set, Alphafold may still not be '
     'deterministic, because processes like GPU inference are '
     'nondeterministic.')
+flags.DEFINE_float(
+    'msa_size_gb', 1.99, 'Size of the MSA.')
 flags.DEFINE_string(
     'homooligomer', None, 'The number of oligomers to model '
     'protein with. By default, will model as monomer '
@@ -169,6 +171,7 @@ def predict_structure(fasta_path: str,
                       amber_relaxer: relax.AmberRelaxation,
                       benchmark: bool,
                       random_seed: int,
+                      msa_size_gb: float,
                       homooligomer: str = '1',
                       relax: bool = False,
                       turbo: bool = False):
@@ -187,6 +190,7 @@ def predict_structure(fasta_path: str,
         t_0 = time.time()
         feature_dict = data_pipeline.process(input_fasta_path=fasta_path,
                                              msa_output_dir=msa_output_dir,
+                                             msa_size_gb=msa_size_gb,
                                              homooligomer=homooligomer)
         timings['features'] = time.time() - t_0
 
@@ -449,6 +453,8 @@ def main(argv):
         random_seed = random.randrange(sys.maxsize)
     logging.info('Using random seed %d for the data pipeline', random_seed)
 
+    msa_size_gb = FLAGS.msa_size_gb
+
     homooligomer = FLAGS.homooligomer
     if homooligomer is None:
         homooligomer = '1'
@@ -463,6 +469,7 @@ def main(argv):
                           amber_relaxer=amber_relaxer,
                           benchmark=FLAGS.benchmark,
                           random_seed=random_seed,
+                          msa_size_gb=msa_size_gb,
                           homooligomer=homooligomer,
                           relax=FLAGS.relax,
                           turbo=FLAGS.turbo)

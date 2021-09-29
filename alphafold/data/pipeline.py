@@ -119,6 +119,7 @@ def make_sequence_features(sequence: str,
 def make_msa_features(msas: Sequence[Sequence[str]],
                       deletion_matrices: Sequence[parsers.DeletionMatrix],
                       Ln: int,
+                      msa_size_gb: float,
                       homooligomer: int = 1) -> FeatureDict:
     """Constructs a feature dict of MSA features."""
     if not msas:
@@ -142,7 +143,7 @@ def make_msa_features(msas: Sequence[Sequence[str]],
     deletion_matrix = []
     seen_sequences = set()
     # 1.99 GB Max size, size of row in msa array = Ln * 4 bytes (int32)
-    max_msa_sequences = (1.99 * 1024 * 1024 * 1024) // (Ln * homooligomer * 4)
+    max_msa_sequences = (msa_size_gb * 1024 * 1024 * 1024) // (Ln * homooligomer * 4)
     num_sequences = 0
     for msa_index, msa in enumerate(all_msas):
         if not msa:
@@ -345,6 +346,7 @@ class DataPipeline:
     def process(self,
                 input_fasta_path: str,
                 msa_output_dir: str,
+                msa_size_gb: float,
                 homooligomer: str = '1') -> FeatureDict:
         """Runs alignment tools on the input sequence and creates features."""
         with open(input_fasta_path) as f:
@@ -457,6 +459,7 @@ class DataPipeline:
             deletion_matrices=(uniref90_deletion_matrix, bfd_deletion_matrix,
                                mgnify_deletion_matrix),
             Ln=len(input_sequence),
+            msa_size_gb=msa_size_gb,
             homooligomer=homooligomer)
 
         logging.info('Uniref90 MSA size: %d sequences.', len(uniref90_msa))
