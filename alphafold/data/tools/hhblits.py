@@ -26,9 +26,9 @@ from alphafold.data.tools import utils
 
 _HHBLITS_DEFAULT_P = 20
 _HHBLITS_DEFAULT_Z = 500
-#TMPDIR="/tmp"
+TMPDIR="/tmp"
 #TMPDIR="/data/alberto/alphafold_tmp"
-TMPDIR="/global/scratch/aanava/alphafold_tmp"
+#TMPDIR="/global/scratch/aanava/alphafold_tmp"
 
 
 class HHBlits:
