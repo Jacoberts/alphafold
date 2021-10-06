@@ -19,9 +19,6 @@ import shutil
 import subprocess
 from typing import List, Tuple, Sequence
 
-# Non-native python libraries
-from Bio import SeqIO
-
 # =======================================================================#
 # Command-Line Interface
 # =======================================================================#
@@ -50,6 +47,20 @@ def cli() -> argparse.ArgumentParser:
         "--model_only",
         action='store_true',
         help=('Whether to just run model stage (GPU stage)'),
+    )
+    parser.add_argument(
+        "-f",
+        "--features_only",
+        action='store_true',
+        help=('Whether to just run features stage (CPU stage)'),
+    )
+    parser.add_argument(
+        "-b",
+        "--block",
+        action='store_true',
+        help=('Whether to block command line after launching slurm job,'
+              ' e.g. use --wait option. If -b given then will use --wait. '
+              'Default is to submit to queue and release'),
     )
     parser.add_argument(
         "-n",
@@ -203,14 +214,19 @@ def loggingHelper(verbose=False, filename="slurm_alphafold_pipeline.log"):
 
 ALPHAFOLD_FEATURE_TEMPLATE: str = """#!/bin/bash
 #SBATCH --job-name=alphamsa_{NAME}
-#SBATCH --partition={PARTITION}
+#SBATCH --partition=lr6
 #SBATCH --account=pc_rosetta
 #SBATCH --qos=lr_normal
 #SBATCH --output={ALPHAFOLD_LOGS}/%j_%x_{NAME}_{PURPOSE}.out
 #SBATCH --error={ALPHAFOLD_LOGS}/%j_%x_{NAME}_{PURPOSE}.err
-#SBATCH --time=48:00:00
+#SBATCH --time=72:00:00
 #SBATCH -N 1
+#SBATCH --exclusive
 #SBATCH --mem {PARTITION_MEM}
+
+###SBATCH --mem {PARTITION_MEM}
+###SBATCH --partition={PARTITION}
+###SBATCH --mem {PARTITION_MEM}
 
 echo "HOST: " $(hostname)
 echo "NCPU: " $(nproc)
@@ -323,9 +339,17 @@ ALPHAFOLD_MODEL_TEMPLATE: str = """#!/bin/bash
 #SBATCH --output={ALPHAFOLD_LOGS}/%j_%x_{NAME}.out
 #SBATCH --error={ALPHAFOLD_LOGS}/%j_%x_{NAME}.err
 #SBATCH --time=72:00:00
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:GTX1080TI:2
 #SBATCH --cpus-per-task=4
-#SBATCH --mem 180G
+#SBATCH -N 1
+#SBATCH --ntasks-per-node 1
+#SBATCH --exclusive
+
+##SBATCH --gres=gpu:2
+##SBATCH --mem 180G
+# gpu:V100:2
+# gpu:GTX1080TI:4
+# gpu:GRTX2080TI:4
 
 echo "HOST: " $(hostname)
 echo "NCPU: " $(nproc)
@@ -665,7 +689,9 @@ def main(args: dict) -> None:
         homooligomers: List[int] = [
             int(h) for h in args['homooligomers'].split(':')
         ]  # homooligomers = [2, 2]
-        assert len(homooligomers) == 1 or len(homooligomers) == len(seqs)
+        assert len(homooligomers) == 1 or len(homooligomers) == len(
+            seqs
+        ), f'Homooligomers: {str(homooligomers)} vs len(seqs): {len(seqs)}'
         if len(homooligomers) == 1 and len(seqs) > 1:
             homooligomers *= len(seqs)
             homooligomer = ':'.join(str(h) for h in homooligomers)
@@ -683,6 +709,9 @@ def main(args: dict) -> None:
 
         name: str = os.path.splitext(target_fasta)[0]
         output_directory: str = os.path.join(args['alphafold_results'], name)
+        if os.path.exists(os.path.join(output_directory, 'ranked_0.pdb')):
+            logging.debug(f'Skipping {name} because ranked_0.pdb exists')
+            continue
         msas_directory: str = os.path.join(output_directory, 'msas')
         logs_directory: str = os.path.join(output_directory, 'logs')
         os.makedirs(msas_directory, exist_ok=True)
@@ -690,6 +719,9 @@ def main(args: dict) -> None:
         if not os.path.exists(os.path.join(output_directory, target_fasta)):
             shutil.copy2(os.path.join(args['alphafold_input'], target_fasta),
                          os.path.join(output_directory, target_fasta))
+
+        scommand: str = 'sbatch --wait' if args['block'] else 'sbatch'
+        logging.debug(f'Using scommand: {scommand}')
 
         model_script_path: str
         if len(seqs) == 1:
@@ -703,21 +735,27 @@ def main(args: dict) -> None:
                                                     args=args)
 
             model_process_id: str
-            if not args['model_only']:
+            if not args['model_only'] and not args['features_only']:
                 feature_process_id: str = launch_slurm_process(
-                    f"sbatch {feature_script_path}")
+                    f"{scommand} {feature_script_path}")
 
                 model_process_id = launch_slurm_process(
-                    f"sbatch --dependency=afterok:{feature_process_id} {model_script_path}"  # noqa: E501
+                    f"{scommand} --dependency=afterok:{feature_process_id} {model_script_path}"  # noqa: E501
                 )
 
                 logging.debug(
                     f"Launched feature process {feature_process_id} and "
                     f"dependent model process {model_process_id} for "
                     f"{target_fasta}")
-            else:
+            elif args['features_only']:
+                feature_process_id: str = launch_slurm_process(
+                    f"{scommand} {feature_script_path}")
+                logging.debug(
+                    f"Launched feature process {feature_process_id} for "
+                    f"{target_fasta}")
+            elif args['model_only']:
                 model_process_id = launch_slurm_process(
-                    f"sbatch {model_script_path}")
+                    f"{scommand} {model_script_path}")
 
                 logging.debug(f"Launched model process {model_process_id} for "
                               f"{target_fasta}")
@@ -739,26 +777,39 @@ def main(args: dict) -> None:
                 args['alphafold_input'], target_fasta),
                                                     args=args)
             model_script_id: str
-            if not args['model_only']:
+            if not args['model_only'] and not args['features_only']:
                 msa_script_ids: List[str] = []
                 for msa_script in msa_scripts:
                     msa_script_id: str = launch_slurm_process(
-                        f"sbatch {msa_script}")
+                        f"{scommand} {msa_script}")
                     msa_script_ids.append(msa_script_id)
                 combine_msa_script_id: str = launch_slurm_process(
-                    f"sbatch --dependency=afterok:{':'.join(msa_script_ids)} {combine_msa_script_path}"  # noqa: E501
+                    f"{scommand} --dependency=afterok:{':'.join(msa_script_ids)} {combine_msa_script_path}"  # noqa: E501
                 )
                 model_script_id = launch_slurm_process(
-                    f"sbatch --dependency=afterok:{combine_msa_script_id} {model_script_path}"  # noqa: E501
+                    f"{scommand} --dependency=afterok:{combine_msa_script_id} {model_script_path}"  # noqa: E501
                 )
                 logging.debug(
                     f"Launched msa processes {str(msa_script_ids)} and"
                     f" dependent combine msa process {combine_msa_script_id} "
                     f"and dependent model process {model_script_id} for "
                     f"{target_fasta}")
-            else:
+            elif args['features_only']:
+                msa_script_ids: List[str] = []
+                for msa_script in msa_scripts:
+                    msa_script_id: str = launch_slurm_process(
+                        f"{scommand} {msa_script}")
+                    msa_script_ids.append(msa_script_id)
+                combine_msa_script_id: str = launch_slurm_process(
+                    f"{scommand} --dependency=afterok:{':'.join(msa_script_ids)} {combine_msa_script_path}"  # noqa: E501
+                )
+                logging.debug(
+                    f"Launched msa processes {str(msa_script_ids)} and"
+                    f" dependent combine msa process {combine_msa_script_id} "
+                    f"for {target_fasta}")
+            elif args['model_only']:
                 model_script_id = launch_slurm_process(
-                    f"sbatch {model_script_path}")
+                    f"{scommand} {model_script_path}")
                 logging.debug(f"Launched model process {model_script_id} for "
                               f"{target_fasta}")
 
