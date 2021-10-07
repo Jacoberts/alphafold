@@ -43,6 +43,14 @@ def cli() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__VERSION__)
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument(
+        "-c",
+        "--cluster",
+	type=str,
+	choices=['lrc', 'savio'],
+	default='lrc',
+        help=('Which cluster is slurm running on'),
+    )
+    parser.add_argument(
         "-m",
         "--model_only",
         action='store_true',
@@ -207,26 +215,23 @@ def loggingHelper(verbose=False, filename="slurm_alphafold_pipeline.log"):
 # SLURM Script Templates
 # 2 separate scripts for 2 different stages of alphafold
 # 1st stage: Feature generation is CPU limited
-# - Run on either lr6 or lr3
+# - On lrc, Run on either lr6 or lr3
+# - On savio, Run on either savio or savio2
 # 2nd stage: DNN Structure Model is GPU limited
-# - Run on es1
+# - On lrc, Run on es1
+# - On savio, Run on savio2_gpu (17 nodes) or savio2_1080ti (8 nodes)
 # =======================================================================#
 
 ALPHAFOLD_FEATURE_TEMPLATE: str = """#!/bin/bash
 #SBATCH --job-name=alphamsa_{NAME}
-#SBATCH --partition=lr6
-#SBATCH --account=pc_rosetta
-#SBATCH --qos=lr_normal
+#SBATCH --partition={PARTITION}
+#SBATCH --account={ACCOUNT}
+#SBATCH --qos={QOS}
 #SBATCH --output={ALPHAFOLD_LOGS}/%j_%x_{NAME}_{PURPOSE}.out
 #SBATCH --error={ALPHAFOLD_LOGS}/%j_%x_{NAME}_{PURPOSE}.err
-#SBATCH --time=72:00:00
+#SBATCH --time=48:00:00
 #SBATCH -N 1
 #SBATCH --exclusive
-#SBATCH --mem {PARTITION_MEM}
-
-###SBATCH --mem {PARTITION_MEM}
-###SBATCH --partition={PARTITION}
-###SBATCH --mem {PARTITION_MEM}
 
 echo "HOST: " $(hostname)
 echo "NCPU: " $(nproc)
@@ -333,31 +338,24 @@ fi
 
 ALPHAFOLD_MODEL_TEMPLATE: str = """#!/bin/bash
 #SBATCH --job-name=alphamodel_{NAME}
-#SBATCH --partition=es1
-#SBATCH --account=pc_rosetta
-#SBATCH --qos=es_normal
+#SBATCH --partition={PARTITION}
+#SBATCH --account={ACCOUNT}
+#SBATCH --qos={QOS}
 #SBATCH --output={ALPHAFOLD_LOGS}/%j_%x_{NAME}.out
 #SBATCH --error={ALPHAFOLD_LOGS}/%j_%x_{NAME}.err
 #SBATCH --time=72:00:00
-#SBATCH --gres=gpu:GTX1080TI:2
+#SBATCH --gres={GPU}
 #SBATCH --cpus-per-task=4
 #SBATCH -N 1
 #SBATCH --ntasks-per-node 1
 #SBATCH --exclusive
-
-##SBATCH --gres=gpu:2
-##SBATCH --mem 180G
-# gpu:V100:2
-# gpu:GTX1080TI:4
-# gpu:GRTX2080TI:4
 
 echo "HOST: " $(hostname)
 echo "NCPU: " $(nproc)
 echo "RAM:  " $(free -gth | tail -n -1)
 nvidia-smi
 
-module purge
-module load cuda/10.2
+{MODULES}
 
 source {MINICONDA}
 conda activate alphafold
@@ -473,10 +471,21 @@ def create_combine_msa_script(target_fasta: str, args: dict,
     name: str = os.path.splitext(os.path.basename(target_fasta))[0]
     output_dir: str = os.path.join(args['alphafold_results'], complex_name)
     logs_dir: str = os.path.join(output_dir, 'logs')
+    if args['cluster'] == 'lrc':
+        partition = 'lr3,lr6'
+        account = 'pc_rosetta'
+        qos = 'lr_normal'
+    elif args['cluster'] == 'savio':
+        partition = 'savio,savio2'
+        account = 'fc_pkss'
+        qos = 'savio_normal'
     msa_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
         **{
             "TARGET_FASTA": target_fasta,
             "NAME": name,
+            "PARTITION": partition,
+            "ACCOUNT": account,
+            "QOS": qos,
             "PRESET": args['preset'],
             "HOMOOLIGOMERS": args['homooligomers'],
             "MINICONDA": args['miniconda'],
@@ -489,8 +498,7 @@ def create_combine_msa_script(target_fasta: str, args: dict,
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
             "COMPLEX_NAME": f'--complex_name={complex_name}',
-            "PARTITION": 'lr6',
-            "PARTITION_MEM": '48G',
+            #"PARTITION_MEM": '48G',
             "TURBO": f'--turbo={args["turbo"]}',
             "MMSEQS": '',
         })
@@ -505,11 +513,22 @@ def create_msa_script(target_fasta: str, args: dict, complex_name: str) -> str:
     name: str = os.path.splitext(os.path.basename(target_fasta))[0]
     output_dir: str = os.path.join(args['alphafold_results'], complex_name)
     logs_dir: str = os.path.join(output_dir, 'logs')
+    if args['cluster'] == 'lrc':
+        partition = 'lr3,lr6'
+        account = 'pc_rosetta'
+        qos = 'lr_normal'
+    elif args['cluster'] == 'savio':
+        partition = 'savio,savio2'
+        account = 'fc_pkss'
+        qos = 'savio_normal'
     msa_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
         **{
             "TARGET_FASTA": os.path.join(args['alphafold_input'],
                                          target_fasta),
             "NAME": name,
+            "PARTITION": partition,
+            "ACCOUNT": account,
+            "QOS": qos,
             "PRESET": args['preset'],
             "HOMOOLIGOMERS": args['homooligomers'],
             "MINICONDA": args['miniconda'],
@@ -522,8 +541,7 @@ def create_msa_script(target_fasta: str, args: dict, complex_name: str) -> str:
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
             "COMPLEX_NAME": f'--complex_name={complex_name}',
-            "PARTITION": 'lr6',
-            "PARTITION_MEM": '180G',
+            #"PARTITION_MEM": '180G',
             "TURBO": '',
             "MMSEQS": f'--mmseqs={args["mmseqs"]}',
         })
@@ -538,11 +556,22 @@ def create_feature_script(target_fasta: str, args: dict) -> str:
     name: str = os.path.splitext(os.path.basename(target_fasta))[0]
     output_dir: str = os.path.join(args['alphafold_results'], name)
     logs_dir: str = os.path.join(output_dir, 'logs')
+    if args['cluster'] == 'lrc':
+        partition = 'lr3,lr6'
+        account = 'pc_rosetta'
+        qos = 'lr_normal'
+    elif args['cluster'] == 'savio':
+        partition = 'savio,savio2'
+        account = 'fc_pkss'
+        qos = 'savio_normal'
     feature_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
         **{
             "TARGET_FASTA": os.path.join(args['alphafold_input'],
                                          target_fasta),
             "NAME": name,
+            "PARTITION": partition,
+            "ACCOUNT": account,
+            "QOS": qos,
             "PRESET": args['preset'],
             "HOMOOLIGOMERS": args['homooligomers'],
             "MINICONDA": args['miniconda'],
@@ -555,8 +584,7 @@ def create_feature_script(target_fasta: str, args: dict) -> str:
             "MAX_RECYCLES": args['max_recycles'],
             "TOL": args['tol'],
             "COMPLEX_NAME": '',
-            "PARTITION": 'lr6',
-            "PARTITION_MEM": '180G',
+            #"PARTITION_MEM": '180G',
             "TURBO": '',
             "MMSEQS": '',
         })
@@ -578,11 +606,36 @@ def create_model_script(target_fasta: str, args: dict) -> str:
     relax: str = 'true' if args['relax'] else 'false'
     output_dir: str = os.path.join(args['alphafold_results'], name)
     logs_dir: str = os.path.join(output_dir, 'logs')
+    if args['cluster'] == 'lrc':
+        partition = 'es1'
+        account = 'pc_rosetta'
+        qos = 'es_normal'
+        gpu = 'gpu:GTX1080TI:2'
+        modules = 'module purge && module load cuda/10.2'
+    elif args['cluster'] == 'savio':
+        partition = 'savio2_1080ti,savio2_gpu'
+        account = 'fc_pkss'
+        qos = 'savio_normal'
+        gpu = 'gpu:2'
+        modules = '''export CUDA_DIR=/global/software/sl-7.x86_64/modules/langs/cuda/11.2
+export PATH=$CUDA_DIR/bin:$PATH
+export CPATH=$CUDA_DIR/include:$CUDA_DIR/cublas/include:$CPATH
+export FPATH=$CUDA_DIR/include:$FPATH
+export INCLUDE=$CUDA_DIR/include:$INCLUDE
+export LIBRARY_PATH=$CUDA_DIR/lib64:$LIBRARY_PATH
+export LD_LIBRARY_PATH=$CUDA_DIR/lib64:$LD_LIBRARY_PATH
+export LIBRARY_PATH=$CUDA_DIR/lib64/stubs:$LIBRARY_PATH
+export LD_LIBRARY_PATH=$CUDA_DIR/lib64/stubs:$LD_LIBRARY_PATH
+export PKG_CONFIG_PATH=$CUDA_DIR/pkgconfig:$PKG_CONFIG_PATH'''
     model_script: str = ALPHAFOLD_MODEL_TEMPLATE.format(
         **{
             "TARGET_FASTA": os.path.join(args['alphafold_input'],
                                          target_fasta),
             "NAME": name,
+            "PARTITION": partition,
+            "ACCOUNT": account,
+            "QOS": qos,
+            "GPU": gpu,
             "PRESET": args['preset'],
             "HOMOOLIGOMERS": args['homooligomers'],
             "MODELS": models,
@@ -598,6 +651,7 @@ def create_model_script(target_fasta: str, args: dict) -> str:
             "TOL": args['tol'],
             "TURBO": f'--turbo={args["turbo"]}',
             "MMSEQS": '',
+            "MODULES": modules,
         })
     model_script_path: str = os.path.join(output_dir,
                                           f'submit_models_{name}.slurm')
