@@ -112,11 +112,11 @@ flags.DEFINE_integer(
 flags.DEFINE_float(
     'msa_size_gb', 1.99, 'Size of the MSA.')
 flags.DEFINE_string(
-    'homooligomer', None, 'The number of oligomers to model '
+    'homooligomer', 1, 'The number of oligomers to model '
     'protein with. By default, will model as monomer '
     '(default: 1)')
-flags.DEFINE_integer('max_recycles', None, 'Max recycles')
-flags.DEFINE_float('tol', None, 'Max recycle tolerance')
+flags.DEFINE_integer('max_recycles', 3, 'Max recycles')
+flags.DEFINE_float('tol', 0, 'Max recycle tolerance')
 flags.DEFINE_boolean('turbo', False, 'Whether to use turbo alphafold models')
 flags.DEFINE_string('mmseqs_binary_path', '/usr/bin/mmseqs',
                     'Path to the mmseqs executable.')
@@ -489,14 +489,6 @@ if __name__ == '__main__':
         'max_template_date',
         'obsolete_pdbs_path',
         'relax',
-        'homooligomer',
-        'max_recycles',
-        'tol',
-        'mmseqs_binary_path',
-        'mmseqs_uniref50_database_path',
-        'mmseqs_mgnify_database_path',
-        'mmseqs_small_bfd_database_path',
-        'mmseqs',
     ])
 
     app.run(main)
