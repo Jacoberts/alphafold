@@ -216,7 +216,7 @@ def loggingHelper(verbose=False, filename="slurm_alphafold_pipeline.log"):
 # 2 separate scripts for 2 different stages of alphafold
 # 1st stage: Feature generation is CPU limited
 # - On lrc, Run on either lr6 or lr3
-# - On savio, Run on either savio or savio2
+# - On savio, Run on either savio or savio2 or savio2_bigmem
 # 2nd stage: DNN Structure Model is GPU limited
 # - On lrc, Run on es1
 # - On savio, Run on savio2_gpu (17 nodes) or savio2_1080ti (8 nodes)
@@ -472,11 +472,17 @@ def create_combine_msa_script(target_fasta: str, args: dict,
     output_dir: str = os.path.join(args['alphafold_results'], complex_name)
     logs_dir: str = os.path.join(output_dir, 'logs')
     if args['cluster'] == 'lrc':
-        partition = 'lr3,lr6'
+        if args['full_length'] > 1500:
+            partition = 'lr6,lr3'
+        else:
+            partition = 'lr3,lr6'
         account = 'pc_rosetta'
         qos = 'lr_normal'
     elif args['cluster'] == 'savio':
-        partition = 'savio,savio2'
+        if args['full_length'] > 1500:
+            partition = 'savio2_bigmem,savio2,savio'
+        else:
+            partition = 'savio2,savio'
         account = 'fc_pkss'
         qos = 'savio_normal'
     msa_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
@@ -514,11 +520,17 @@ def create_msa_script(target_fasta: str, args: dict, complex_name: str) -> str:
     output_dir: str = os.path.join(args['alphafold_results'], complex_name)
     logs_dir: str = os.path.join(output_dir, 'logs')
     if args['cluster'] == 'lrc':
-        partition = 'lr3,lr6'
+        if args['full_length'] > 1500:
+            partition = 'lr6,lr3'
+        else:
+            partition = 'lr3,lr6'
         account = 'pc_rosetta'
         qos = 'lr_normal'
     elif args['cluster'] == 'savio':
-        partition = 'savio,savio2'
+        if args['full_length'] > 1500:
+            partition = 'savio2_bigmem,savio2,savio'
+        else:
+            partition = 'savio2,savio'
         account = 'fc_pkss'
         qos = 'savio_normal'
     msa_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
@@ -557,11 +569,17 @@ def create_feature_script(target_fasta: str, args: dict) -> str:
     output_dir: str = os.path.join(args['alphafold_results'], name)
     logs_dir: str = os.path.join(output_dir, 'logs')
     if args['cluster'] == 'lrc':
-        partition = 'lr3,lr6'
+        if args['full_length'] > 1500:
+            partition = 'lr6,lr3'
+        else:
+            partition = 'lr3,lr6'
         account = 'pc_rosetta'
         qos = 'lr_normal'
     elif args['cluster'] == 'savio':
-        partition = 'savio,savio2'
+        if args['full_length'] > 1500:
+            partition = 'savio2_bigmem,savio2,savio'
+        else:
+            partition = 'savio2,savio'
         account = 'fc_pkss'
         qos = 'savio_normal'
     feature_script: str = ALPHAFOLD_FEATURE_TEMPLATE.format(
@@ -759,6 +777,7 @@ def main(args: dict) -> None:
         logging.debug(f"Split Sequences: {str(seqs)}")
         logging.debug(f"Full Sequence: {full_sequence}")
         logging.debug(f"Total length of {target_fasta}: {len(full_sequence)}")
+        args['full_length'] = len(full_sequence)
         args['homooligomers'] = homooligomer
 
         name: str = os.path.splitext(target_fasta)[0]
