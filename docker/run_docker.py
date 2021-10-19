@@ -111,6 +111,12 @@ flags.DEFINE_boolean('benchmark', False, 'Run multiple JAX model evaluations '
                      'to obtain a timing that excludes the compilation time, '
                      'which should be more indicative of the time required for '
                      'inferencing many proteins.')
+flags.DEFINE_float(
+    'msa_size_gb', None, 'Size of the MSA.')
+flags.DEFINE_string(
+    'homooligomer', None, 'The number of oligomers to model '
+    'protein with. By default, will model as monomer '
+    '(default: 1)')
 
 FLAGS = flags.FLAGS
 
@@ -173,6 +179,8 @@ def main(argv):
       f'--max_template_date={FLAGS.max_template_date}',
       f'--preset={FLAGS.preset}',
       f'--benchmark={FLAGS.benchmark}',
+      f'--msa_size_gb={FLAGS.msa_size_gb}',
+      f'--homooligomer={FLAGS.homooligomer}',
       '--logtostderr',
   ])
 
