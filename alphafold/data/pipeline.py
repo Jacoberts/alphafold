@@ -143,7 +143,7 @@ def make_msa_features(msas: Sequence[Sequence[str]],
     deletion_matrix = []
     seen_sequences = set()
     # 1.99 GB Max size, size of row in msa array = Ln * 4 bytes (int32)
-    max_msa_sequences = (1.5 * 1024 * 1024 * 1024) // (Ln * homooligomer * 4)
+    max_msa_sequences = (1.99 * 1024 * 1024 * 1024) // (Ln * homooligomer * 4)
     num_sequences = 0
     for msa_index, msa in enumerate(all_msas):
         if not msa:
