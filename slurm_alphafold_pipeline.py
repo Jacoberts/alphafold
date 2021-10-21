@@ -724,6 +724,8 @@ def parse_fasta(fasta_string: str) -> Tuple[Sequence[str], Sequence[str]]:
             continue  # Skip blank lines.
         sequences[index] += line
 
+    if len(sequences) != len(descriptions):
+        raise ValueError('Fasta format not valid')
     return sequences, descriptions
 
 
@@ -750,6 +752,20 @@ def main(args: dict) -> None:
         assert os.path.exists(
             os.path.join(args['alphafold_input'], target_fasta))
 
+        with open(os.path.join(args['alphafold_input'], target_fasta),
+                  'r') as F:
+            raw_fasta: str = F.read()
+        parsed_fasta = parse_fasta(raw_fasta)
+        if len(parsed_fasta[0]) > 1:
+            logging.debug('Multi-entry fasta detected. Running alphafold on following proteins instead:')
+            args['target_fastas'].remove(target_fasta)
+            for i, sequence in enumerate(parsed_fasta[0]):
+                new_sequence_path: str = os.path.join(args['alphafold_input'], f'{parsed_fasta[1][i]}.fasta')
+                with open(new_sequence_path, 'w') as F:
+                    F.write('>{}\n{}'.format(parsed_fasta[1][i], sequence))
+                args['target_fastas'].append(os.path.basename(new_sequence_path))
+                logging.debug(os.path.basename(new_sequence_path))
+        
     logging.debug("Beginning to run alphafold")
 
     for target_fasta in args['target_fastas']:
