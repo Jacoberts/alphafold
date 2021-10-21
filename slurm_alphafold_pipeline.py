@@ -175,6 +175,11 @@ def cli() -> argparse.ArgumentParser:
         help=('Whether to use alphafold turbo models'),
     )
     parser.add_argument(
+        "--setup_only",
+        action='store_true',
+        help=('Whether to launch any slurm jobs or just set up launch script'),
+    )
+    parser.add_argument(
         "target_fastas",
         type=str,
         nargs='+',
@@ -806,6 +811,8 @@ def main(args: dict) -> None:
             model_script_path = create_model_script(target_fasta=os.path.join(
                 args['alphafold_input'], target_fasta),
                                                     args=args)
+            if args['setup_only']:
+                continue
 
             model_process_id: str
             if not args['model_only'] and not args['features_only']:
@@ -849,6 +856,10 @@ def main(args: dict) -> None:
             model_script_path = create_model_script(target_fasta=os.path.join(
                 args['alphafold_input'], target_fasta),
                                                     args=args)
+
+            if args['setup_only']:
+                continue
+
             model_script_id: str
             if not args['model_only'] and not args['features_only']:
                 msa_script_ids: List[str] = []
