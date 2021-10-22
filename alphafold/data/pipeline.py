@@ -133,14 +133,14 @@ def make_msa_features(msas: Sequence[Sequence[str]],
     # sequence from all the MSAs, times the number of homooligomers.
     denorm_msa = []
     denorm_deletion_matrix = []
-    for ii, (msa, deletion_matrix) in enumerate(zip(msas, deletion_matrices)):
+    for msa_idx, (msa, deletion_matrix) in enumerate(zip(msas, deletion_matrices)):
         if not msa:
             raise ValueError(
-                f'MSA {ii} must contain at least one sequence.')
+                f'MSA {msa_idx} must contain at least one sequence.')
         for sequence, deletion_row in zip(msa, deletion_matrix):
-            for ii in range(homooligomer):
-                L = Ln * ii
-                R = Ln * (homooligomer - (ii + 1))
+            for olig_idx in range(homooligomer):
+                L = Ln * olig_idx
+                R = Ln * (homooligomer - (olig_idx + 1))
                 denorm_msa.append("-" * L + sequence + "-" * R)
                 denorm_deletion_matrix.append([0] * L + deletion_row + [0] * R)
 
