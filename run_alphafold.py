@@ -117,7 +117,7 @@ flags.DEFINE_string(
     'protein with. By default, will model as monomer '
     '(default: 1)')
 flags.DEFINE_integer('max_recycles', '3', 'Max recycles')
-flags.DEFINE_float('tol', '0', 'Max recycle tolerance')
+flags.DEFINE_float('tol', 0.0, 'Max recycle tolerance')
 flags.DEFINE_boolean('turbo', False, 'Whether to use turbo alphafold models')
 flags.DEFINE_string('mmseqs_binary_path', '/usr/bin/mmseqs',
                     'Path to the mmseqs executable.')
