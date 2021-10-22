@@ -22,12 +22,15 @@ from alphafold.data import templates
 from alphafold.data.tools import hhblits
 from alphafold.data.tools import hhsearch
 from alphafold.data.tools import jackhmmer
-from alphafold.data.tools import mmseqs as mmseqs2
+#from alphafold.data.tools import mmseqs as mmseqs2
 import numpy as np
 from dataclasses import dataclass
 from string import ascii_uppercase
 import pickle
+
 from pathlib import Path
+import random
+
 
 # Internal import (7716).
 
@@ -150,6 +153,7 @@ def make_msa_features(msas: Sequence[Sequence[str]],
         if not msa:
             raise ValueError(
                 f'MSA {msa_index} must contain at least one sequence.')
+        #for sequence_index, sequence in enumerate(random.sample(msa, min(len(msa),max_msa_sequences))):
         for sequence_index, sequence in enumerate(msa):
             if sequence in seen_sequences:
                 continue
@@ -346,6 +350,11 @@ class DataPipeline:
             binary_path=hhsearch_binary_path,
             databases=[pdb70_database_path],
             tmp_dir=tmp_dir)
+        #self.mmseqs_runner = mmseqs2.MMSeqs(
+        #    binary_path=mmseqs_binary_path,
+        #    uniref50_database_path=mmseqs_uniref50_database_path,
+        #    mgnify_database_path=mmseqs_mgnify_database_path,
+        #    small_bfd_database_path=mmseqs_small_bfd_database_path)
         self.template_featurizer = template_featurizer
         self.mgnify_max_hits = mgnify_max_hits
         self.uniref_max_hits = uniref_max_hits
