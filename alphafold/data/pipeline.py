@@ -129,46 +129,46 @@ def make_msa_features(msas: Sequence[Sequence[str]],
     if not msas:
         raise ValueError('At least one MSA must be provided.')
 
-    all_msas = []
-    all_deletion_matrices = []
-    if homooligomer > 1:
-        for o in range(homooligomer):
-            for msa, deletion_matrix in zip(msas, deletion_matrices):
-                L = Ln * o
-                R = Ln * (homooligomer - (o + 1))
-                all_msas.append(["-" * L + seq + "-" * R for seq in msa])
-                all_deletion_matrices.append([[0] * L + mtx + [0] * R
-                                              for mtx in deletion_matrix])
-    else:
-        all_msas = msas
-        all_deletion_matrices = deletion_matrices
+    # Flatten and denormalize the MSA. The denormalized form has every
+    # sequence from all the MSAs, times the number of homooligomers.
+    denorm_msa = []
+    denorm_deletion_matrix = []
+    for ii, (msa, deletion_matrix) in enumerate(zip(msas, deletion_matrices)):
+        if not msa:
+            raise ValueError(
+                f'MSA {ii} must contain at least one sequence.')
+        for sequence, deletion_row in zip(msa, deletion_matrix):
+            for ii in range(homooligomer):
+                L = Ln * ii
+                R = Ln * (homooligomer - (ii + 1))
+                denorm_msa.append("-" * L + sequence + "-" * R)
+                denorm_deletion_matrix.append([0] * L + deletion_row + [0] * R)
+
+    # 1.99 GB Max size, size of row in msa array = Ln * 4 bytes (int32)
+    max_msa_sequences = (msa_size_gb * 1024 * 1024 * 1024) // (Ln * homooligomer * 4)
+ 
+    # Randomly select a subset of the flattened form and convert to ints.
 
     int_msa = []
     deletion_matrix = []
     seen_sequences = set()
-    # 1.99 GB Max size, size of row in msa array = Ln * 4 bytes (int32)
-    max_msa_sequences = (msa_size_gb * 1024 * 1024 * 1024) // (Ln * homooligomer * 4)
-    num_sequences = 0
-    for msa_index, msa in enumerate(all_msas):
-        if not msa:
-            raise ValueError(
-                f'MSA {msa_index} must contain at least one sequence.')
-        #for sequence_index, sequence in enumerate(random.sample(msa, min(len(msa),max_msa_sequences))):
-        for sequence_index, sequence in enumerate(msa):
-            if sequence in seen_sequences:
-                continue
-            seen_sequences.add(sequence)
-            int_msa.append(
-                [residue_constants.HHBLITS_AA_TO_ID[res] for res in sequence])
-            deletion_matrix.append(
-                all_deletion_matrices[msa_index][sequence_index])
-            num_sequences += 1
-            if num_sequences >= max_msa_sequences:
-                break
-        if num_sequences >= max_msa_sequences:
+    for index in random.sample(range(len(denorm_msa)), k=len(denorm_msa)):
+        sequence = denorm_msa[index]
+        deletion_row = denorm_deletion_matrix[index]
+
+        # Don't add duplicate sequences to the MSA.
+        if sequence in seen_sequences:
+            continue
+        seen_sequences.add(sequence)
+
+        int_msa.append(
+            [residue_constants.HHBLITS_AA_TO_ID[res] for res in sequence])
+        deletion_matrix.append(deletion_row)
+
+        if len(seen_sequences) >= max_msa_sequences:
             break
 
-    num_res = len(all_msas[0][0])
+    num_res = len(denorm_msa[0])
     num_alignments = len(int_msa)
     features = {}
     features['deletion_matrix_int'] = np.array(deletion_matrix, dtype=np.int32)
