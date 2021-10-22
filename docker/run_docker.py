@@ -181,6 +181,7 @@ def main(argv):
       f'--benchmark={FLAGS.benchmark}',
       f'--msa_size_gb={FLAGS.msa_size_gb}',
       f'--homooligomer={FLAGS.homooligomer}',
+      f'--tmp_dir={FLAGS.tmp_dir}',
       '--logtostderr',
   ])
 

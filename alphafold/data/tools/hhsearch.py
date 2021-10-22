@@ -20,13 +20,10 @@ import subprocess
 from typing import Sequence
 
 from absl import logging
+from pathlib import Path
 
 from alphafold.data.tools import utils
 # Internal import (7716).
-
-TMPDIR="/tmp"
-#TMPDIR="/data/alberto/alphafold_tmp"
-#TMPDIR="/global/scratch/aanava/alphafold_tmp"
 
 
 class HHSearch:
@@ -36,6 +33,7 @@ class HHSearch:
                *,
                binary_path: str,
                databases: Sequence[str],
+               tmp_dir: Path,
                maxseq: int = 1_000_000):
     """Initializes the Python HHsearch wrapper.
 
@@ -44,6 +42,7 @@ class HHSearch:
       databases: A sequence of HHsearch database paths. This should be the
         common prefix for the database files (i.e. up to but not including
         _hhm.ffindex etc.)
+      tmp_dir: The path to the tmp dir to use.
       maxseq: The maximum number of rows in an input alignment. Note that this
         parameter is only supported in HHBlits version 3.1 and higher.
 
@@ -53,6 +52,7 @@ class HHSearch:
     self.binary_path = binary_path
     self.databases = databases
     self.maxseq = maxseq
+    self.tmp_dir = tmp_dir
 
     for database_path in self.databases:
       if not glob.glob(database_path + '_*'):
@@ -62,7 +62,7 @@ class HHSearch:
   def query(self, a3m: str) -> str:
     """Queries the database using HHsearch using a given a3m."""
     #with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
-    with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       input_path = os.path.join(query_tmp_dir, 'query.a3m')
       hhr_path = os.path.join(query_tmp_dir, 'output.hhr')
       with open(input_path, 'w') as f:

@@ -19,12 +19,10 @@ import subprocess
 from typing import Optional, Sequence
 
 from absl import logging
+from pathlib import Path
+
 from alphafold.data.tools import utils
 # Internal import (7716).
-
-TMPDIR="/tmp"
-#TMPDIR="/data/alberto/alphafold_tmp"
-#TMPDIR="/global/scratch/aanava/alphafold_tmp"
 
 
 class Hmmsearch(object):
@@ -34,12 +32,14 @@ class Hmmsearch(object):
                *,
                binary_path: str,
                database_path: str,
+               tmp_dir: Path,
                flags: Optional[Sequence[str]] = None):
     """Initializes the Python hmmsearch wrapper.
 
     Args:
       binary_path: The path to the hmmsearch executable.
       database_path: The path to the hmmsearch database (FASTA format).
+      tmp_dir: The path to the tmp dir to use.
       flags: List of flags to be used by hmmsearch.
 
     Raises:
@@ -47,6 +47,7 @@ class Hmmsearch(object):
     """
     self.binary_path = binary_path
     self.database_path = database_path
+    self.tmp_dir = tmp_dir
     self.flags = flags
 
     if not os.path.exists(self.database_path):
@@ -57,7 +58,7 @@ class Hmmsearch(object):
     """Queries the database using hmmsearch using a given hmm."""
     #with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
     #with utils.tmpdir_manager(base_dir='/data/alberto/alphafold_tmp') as query_tmp_dir:
-    with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       hmm_input_path = os.path.join(query_tmp_dir, 'query.hmm')
       a3m_out_path = os.path.join(query_tmp_dir, 'output.a3m')
       with open(hmm_input_path, 'w') as f:

@@ -22,13 +22,10 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 from urllib import request
 
 from absl import logging
+from pathlib import Path
 
 from alphafold.data.tools import utils
 # Internal import (7716).
-
-TMPDIR="/tmp"
-#TMPDIR="/data/alberto/alphafold_tmp"
-#TMPDIR="/global/scratch/aanava/alphafold_tmp"
 
 
 class Jackhmmer:
@@ -38,6 +35,7 @@ class Jackhmmer:
                *,
                binary_path: str,
                database_path: str,
+               tmp_dir: Path,
                n_cpu: int = 32,
                n_iter: int = 1,
                e_value: float = 0.0001,
@@ -55,6 +53,7 @@ class Jackhmmer:
     Args:
       binary_path: The path to the jackhmmer executable.
       database_path: The path to the jackhmmer database (FASTA format).
+      tmp_dir: The path to the tmp dir to use.
       n_cpu: The number of CPUs to give Jackhmmer.
       n_iter: The number of Jackhmmer iterations.
       e_value: The E-value, see Jackhmmer docs for more details.
@@ -72,6 +71,7 @@ class Jackhmmer:
     """
     self.binary_path = binary_path
     self.database_path = database_path
+    self.tmp_dir = tmp_dir
     self.num_streamed_chunks = num_streamed_chunks
 
     if not os.path.exists(self.database_path) and num_streamed_chunks is None:
@@ -93,9 +93,7 @@ class Jackhmmer:
   def _query_chunk(self, input_fasta_path: str, database_path: str
                    ) -> Mapping[str, Any]:
     """Queries the database chunk using Jackhmmer."""
-    #with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
-    #with utils.tmpdir_manager(base_dir='/data/alberto/alphafold_tmp') as query_tmp_dir:
-    with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       sto_path = os.path.join(query_tmp_dir, 'output.sto')
 
       # The F1/F2/F3 are the expected proportion to pass each of the filtering
@@ -170,9 +168,7 @@ class Jackhmmer:
 
     db_basename = os.path.basename(self.database_path)
     db_remote_chunk = lambda db_idx: f'{self.database_path}.{db_idx}'
-    #db_local_chunk = lambda db_idx: f'/tmp/ramdisk/{db_basename}.{db_idx}'
-    #db_local_chunk = lambda db_idx: f'/data/alberto/alphafold_tmp/ramdisk/{db_basename}.{db_idx}'
-    db_local_chunk = lambda db_idx: f'{TMPDIR}/ramdisk/{db_basename}.{db_idx}'
+    db_local_chunk = lambda db_idx: f'{self.tmp_dir}/ramdisk/{db_basename}.{db_idx}'
 
     # Remove existing files to prevent OOM
     for f in glob.glob(db_local_chunk('[0-9]*')):

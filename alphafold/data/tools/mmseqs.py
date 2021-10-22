@@ -21,13 +21,10 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 from urllib import request
 
 from absl import logging
+from pathlib import Path
 
 from alphafold.data.tools import utils
 # Internal import (7716).
-
-TMPDIR="/tmp"
-#TMPDIR="/data/alberto/alphafold_tmp"
-#TMPDIR = "/global/scratch/aanava/alphafold_tmp"
 
 
 def run_task(cmd: str, task_name: str):
@@ -52,6 +49,7 @@ class MMSeqs:
                  uniref50_database_path: str,
                  mgnify_database_path: str,
                  small_bfd_database_path: str,
+                 tmp_dir: Path,
                  n_cpu: int = 32,
                  n_iter: int = 3,
                  e_value: float = 0.1):
@@ -62,6 +60,7 @@ class MMSeqs:
           uniref50_database_path: Path to uniref50 index
           mgnify_database_path: Path to mgnify index
           small_bfd_database_path: Path to small bfd index
+          tmp_dir: Path,
           n_cpu: The number of CPUs to give MMSeqs.
           n_iter: The number of MMSeqs iterations.
           e_value: The E-value, see MMSeqs docs for more details.
@@ -70,6 +69,7 @@ class MMSeqs:
         self.uniref50_database_path = uniref50_database_path
         self.mgnify_database_path = mgnify_database_path
         self.small_bfd_database_path = small_bfd_database_path
+        self.tmp_dir = tmp_dir
 
         if not os.path.exists(self.uniref50_database_path):
             logging.error('Could not find MMSeqs database %s', self.uniref50_database_path)
@@ -82,7 +82,7 @@ class MMSeqs:
     def query(self, input_fasta_path: str) -> Sequence[Mapping[str, Any]]:
         """Queries the database using MMSeqs."""
 
-        with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
+        with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
             tmp_path: str = os.path.join(query_tmp_dir, 'tmp')
             input_fasta_dir: str = os.path.dirname(input_fasta_path)
             name: str = os.path.basename(input_fasta_path).split('.')[0]

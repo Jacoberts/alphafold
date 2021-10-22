@@ -19,12 +19,10 @@ import re
 import subprocess
 
 from absl import logging
+from pathlib import Path
+
 from alphafold.data.tools import utils
 # Internal import (7716).
-
-TMPDIR="/tmp"
-#TMPDIR="/data/alberto/alphafold_tmp"
-#TMPDIR="/global/scratch/aanava/alphafold_tmp"
 
 
 class Hmmbuild(object):
@@ -33,11 +31,13 @@ class Hmmbuild(object):
   def __init__(self,
                *,
                binary_path: str,
+               tmp_dir: Path,
                singlemx: bool = False):
     """Initializes the Python hmmbuild wrapper.
 
     Args:
       binary_path: The path to the hmmbuild executable.
+      tmp_dir: The path to the tmp dir to use.
       singlemx: Whether to use --singlemx flag. If True, it forces HMMBuild to
         just use a common substitution score matrix.
 
@@ -45,6 +45,7 @@ class Hmmbuild(object):
       RuntimeError: If hmmbuild binary not found within the path.
     """
     self.binary_path = binary_path
+    self.tmp_dir = tmp_dir
     self.singlemx = singlemx
 
   def build_profile_from_sto(self, sto: str, model_construction='fast') -> str:
@@ -104,7 +105,7 @@ class Hmmbuild(object):
 
     #with utils.tmpdir_manager(base_dir='/tmp') as query_tmp_dir:
     #with utils.tmpdir_manager(base_dir='/data/alberto/alphafold_tmp') as query_tmp_dir:
-    with utils.tmpdir_manager(base_dir=TMPDIR) as query_tmp_dir:
+    with utils.tmpdir_manager(base_dir=self.tmp_dir) as query_tmp_dir:
       input_query = os.path.join(query_tmp_dir, 'query.msa')
       output_hmm_path = os.path.join(query_tmp_dir, 'output.hmm')
 

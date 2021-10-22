@@ -27,6 +27,7 @@ import numpy as np
 from dataclasses import dataclass
 from string import ascii_uppercase
 import pickle
+from pathlib import Path
 
 # Internal import (7716).
 
@@ -314,6 +315,7 @@ class DataPipeline:
                  mmseqs_small_bfd_database_path: str,
                  mmseqs: bool,
                  use_small_bfd: bool,
+                 tmp_dir: Path,
                  mgnify_max_hits: int = 501,
                  uniref_max_hits: int = 25000,
                  bfd_max_hits: int = 25000):
@@ -322,22 +324,28 @@ class DataPipeline:
         self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
             binary_path=jackhmmer_binary_path,
             database_path=uniref90_database_path,
+            tmp_dir=tmp_dir,
             get_tblout=True)
         if use_small_bfd:
             self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
                 binary_path=jackhmmer_binary_path,
                 database_path=small_bfd_database_path,
+                tmp_dir=tmp_dir,
                 get_tblout=True)
         else:
             self.hhblits_bfd_uniclust_runner = hhblits.HHBlits(
                 binary_path=hhblits_binary_path,
-                databases=[bfd_database_path, uniclust30_database_path])
+                databases=[bfd_database_path, uniclust30_database_path],
+                tmp_dir=tmp_dir)
         self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
             binary_path=jackhmmer_binary_path,
             database_path=mgnify_database_path,
+            tmp_dir=tmp_dir,
             get_tblout=True)
         self.hhsearch_pdb70_runner = hhsearch.HHSearch(
-            binary_path=hhsearch_binary_path, databases=[pdb70_database_path])
+            binary_path=hhsearch_binary_path,
+            databases=[pdb70_database_path],
+            tmp_dir=tmp_dir)
         self.template_featurizer = template_featurizer
         self.mgnify_max_hits = mgnify_max_hits
         self.uniref_max_hits = uniref_max_hits

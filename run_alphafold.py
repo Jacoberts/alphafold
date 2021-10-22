@@ -33,6 +33,7 @@ from alphafold.model import config
 from alphafold.model import model
 from alphafold.relax import relax
 import numpy as np
+from pathlib import Path
 
 #import tensorflow.compat.v1 as tf
 #
@@ -128,6 +129,7 @@ flags.DEFINE_string('mmseqs_mgnify_database_path', None, 'Path to the MGnify '
 flags.DEFINE_string('mmseqs_small_bfd_database_path', None, 'Path to the BFD '
                     'database for use by mmseqs.')
 flags.DEFINE_boolean('mmseqs', False, 'Whether to use mmseqs MSA pipeline')
+flags.DEFINE_string('tmp_dir', None, 'Path to the temp directory.')
 flags.DEFINE_boolean('clear_gpu', True, 'Whether to clear GPU memory every time.')
 FLAGS = flags.FLAGS
 
@@ -402,7 +404,8 @@ def main(argv):
         max_hits=MAX_TEMPLATE_HITS,
         kalign_binary_path=FLAGS.kalign_binary_path,
         release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
+        tmp_dir=Path(FLAGS.tmp_dir))
 
     data_pipeline = pipeline.DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
@@ -420,7 +423,8 @@ def main(argv):
         mmseqs_mgnify_database_path=FLAGS.mmseqs_mgnify_database_path,
         mmseqs_small_bfd_database_path=FLAGS.mmseqs_small_bfd_database_path,
         mmseqs=FLAGS.mmseqs,
-        use_small_bfd=use_small_bfd)
+        use_small_bfd=use_small_bfd,
+        tmp_dir=Path(FLAGS.tmp_dir))
 
     model_runners = {}
     if not FLAGS.turbo:
@@ -489,6 +493,7 @@ if __name__ == '__main__':
         'max_template_date',
         'obsolete_pdbs_path',
         'relax',
+        'tmp_dir'
     ])
 
     app.run(main)
